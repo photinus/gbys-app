@@ -57,9 +57,7 @@ export function ManageShiftsTable({
             <TH>When</TH>
             <TH>Filled</TH>
             <TH>Status</TH>
-            <TH className="text-right">
-              <span className="sr-only">Actions</span>
-            </TH>
+            <TH className="text-right" aria-label="Actions" />
           </tr>
         </THead>
         <TBody>

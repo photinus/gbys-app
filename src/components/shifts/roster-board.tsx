@@ -48,7 +48,7 @@ export function RosterBoard({ shift, entries }: { shift: RosterShift; entries: R
       <Card>
         <CardHeader
           title="Roster"
-          description={`${checkedIn} of ${entries.length} checked in · ${shift.spotsTotal} spots`}
+          description={`${checkedIn} of ${entries.length} checked in · ${shift.spotsTotal} ${shift.spotsTotal === 1 ? "spot" : "spots"}`}
           action={
             <Button size="sm" onClick={() => setWalkInOpen(true)} disabled={!canAct}>
               <UserPlus className="h-4 w-4" /> Add walk-in

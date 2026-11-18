@@ -35,9 +35,7 @@ export function MyShifts({ shifts }: { shifts: MyShiftItem[] }) {
               <TH>Shift</TH>
               <TH>When</TH>
               <TH>Status</TH>
-              <TH className="text-right">
-                <span className="sr-only">Actions</span>
-              </TH>
+              <TH className="text-right" aria-label="Actions" />
             </tr>
           </THead>
           <TBody>
