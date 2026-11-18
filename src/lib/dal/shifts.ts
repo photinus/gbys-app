@@ -650,6 +650,12 @@ async function performCheckIn(
   if (!canCheckIn(ctx, shift.programId)) {
     throw new DalError("FORBIDDEN", "You do not have permission to check volunteers in.");
   }
+  // Check-in creates an approved ledger entry, so nobody approves their own hours
+  // (same rule as approveHours). Coordinators get checked in by someone else, or
+  // self-report and wait for board approval.
+  if (signup.userId === ctx.userId) {
+    throw new DalError("FORBIDDEN", "Another coordinator needs to check you in.");
+  }
   if (shift.cancelledAt) throw new DalError("INVALID", "This shift was cancelled.");
   if (signup.cancelledAt) throw new DalError("INVALID", "This sign-up was cancelled.");
   if (signup.checkedInAt) throw new DalError("INVALID", "This volunteer is already checked in.");
