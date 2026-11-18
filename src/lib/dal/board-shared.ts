@@ -1,8 +1,9 @@
 import "server-only";
 import { and, asc, eq, gte, isNull, lte, or, gt } from "drizzle-orm";
 import { db, type DbOrTx } from "@/db";
-import { boardMembers } from "@/db/schema";
+import { boardMembers, orgSettings } from "@/db/schema";
 import { utcToLaDateInput } from "@/lib/format";
+import { comparePositions, DEFAULT_BOARD_POSITIONS } from "@/lib/validation/board";
 import { DalError, isBoard, type SessionContext } from "./context";
 
 /** Shared contract for the Board of Directors workstreams (orchestrator-owned). */
@@ -19,7 +20,7 @@ export function requireBoardModule(ctx: SessionContext): void {
  */
 export async function listSeatedDirectors(at: Date = new Date(), tx: DbOrTx = db): Promise<BoardMemberRow[]> {
   const day = utcToLaDateInput(at);
-  return tx
+  const seats = await tx
     .select()
     .from(boardMembers)
     .where(
@@ -30,7 +31,17 @@ export async function listSeatedDirectors(at: Date = new Date(), tx: DbOrTx = db
         or(isNull(boardMembers.endedAt), gt(boardMembers.endedAt, at))
       )
     )
-    .orderBy(asc(boardMembers.position), asc(boardMembers.displayName));
+    .orderBy(asc(boardMembers.displayName));
+  // Order by the board's configured position list (President first), then name.
+  const [settings] = await tx
+    .select({ positions: orgSettings.boardPositions })
+    .from(orgSettings)
+    .where(eq(orgSettings.id, 1))
+    .limit(1);
+  const order = settings?.positions ?? DEFAULT_BOARD_POSITIONS;
+  return seats.sort(
+    (a, b) => comparePositions(a.position, b.position, order) || a.displayName.localeCompare(b.displayName)
+  );
 }
 
 /** The caller's seated voting seat at `at`, if any (votes require a linked account). */
