@@ -2,10 +2,9 @@ import "server-only";
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { db, type DbOrTx } from "@/db";
 import { programRoles, seasons, volunteerLogs, volunteerRoleAssignments, volunteerRoles } from "@/db/schema";
-import { laDateInputToUtc } from "@/lib/format";
+import { laDateInputToUtc, laYearBounds } from "@/lib/format";
 import { isBoard, type SessionContext } from "./context";
 import { canManageProgram } from "./permissions";
-import { laYearBounds } from "./volunteer-hours";
 
 /**
  * Shared contract for the volunteer-roles workstreams (orchestrator-owned).

@@ -89,11 +89,11 @@ export function RoleCard({ role }: { role: OpenRoleRow }) {
           </ul>
           {missing.length > 0 ? (
             <p className="mt-1 text-xs text-stone-500">
-              You can still {role.requiresApproval ? "request this role" : "sign up"}, but{" "}
+              You can still {role.requiresApproval ? "request this role" : "sign up"}, but please{" "}
               <Link href="/volunteer/credentials" className="font-semibold text-indigo-700 underline">
                 add your missing credentials
               </Link>{" "}
-              so it can be approved.
+              {role.requiresApproval ? "so it can be approved." : "before you start."}
             </p>
           ) : null}
         </div>

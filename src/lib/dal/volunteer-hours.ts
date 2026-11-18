@@ -4,7 +4,7 @@ import { alias } from "drizzle-orm/pg-core";
 import { db } from "@/db";
 import { programs, users, volunteerLogs, volunteerRoleAssignments, volunteerRoles } from "@/db/schema";
 import { writeAudit } from "@/lib/audit";
-import { laDateInputToUtc, utcToLaDateInput } from "@/lib/format";
+import { laDateInputToUtc, laYearBounds, laYearOf, utcToLaDateInput } from "@/lib/format";
 import { inKindValueCents } from "@/lib/grant-rate";
 import { getInKindRateCents } from "./settings";
 import type { VerificationMethod, VolunteerCategory } from "@/lib/volunteer-categories";
@@ -89,17 +89,8 @@ function requireBoard(ctx: SessionContext) {
   if (!isBoard(ctx)) throw new DalError("FORBIDDEN", "You do not have permission to do that.");
 }
 
-/** Calendar-year bounds in America/Los_Angeles: [start of Jan 1, start of next Jan 1). */
-export function laYearBounds(year: number): { start: Date; end: Date } {
-  return {
-    start: laDateInputToUtc(`${year}-01-01`, false),
-    end: laDateInputToUtc(`${year + 1}-01-01`, false),
-  };
-}
-
-export function laYearOf(now: Date): number {
-  return Number(utcToLaDateInput(now).slice(0, 4));
-}
+// Re-exported for existing importers; defined in @/lib/format (no DAL import cycle).
+export { laYearBounds, laYearOf };
 
 function parseLogId(v: string): string {
   const r = logIdSchema.safeParse(v);

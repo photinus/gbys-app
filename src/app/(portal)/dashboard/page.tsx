@@ -85,7 +85,7 @@ export default async function DashboardPage() {
                   ? `${roles.pendingCount} ${roles.pendingCount === 1 ? "request" : "requests"} waiting for approval`
                   : "Find a role to sign up for"
                 : `${formatHours(roles.verifiedMinutes)} of ${formatHours(roles.expectedMinutes)} expected logged${
-                    roles.pendingCount > 0 ? `. ${roles.pendingCount} waiting for approval` : ""
+                    roles.pendingCount > 0 ? `. ${roles.pendingCount} role ${roles.pendingCount === 1 ? "request" : "requests"} waiting for approval` : ""
                   }`
             }
             tone="coral"
