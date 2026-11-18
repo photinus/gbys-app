@@ -18,6 +18,8 @@ export interface ShellUser {
   email: string;
   image: string | null;
   orgRole: OrgRole;
+  /** Shows the "Manage shifts" entry for program admins / coaches / team managers. */
+  isShiftCoordinator?: boolean;
 }
 
 export function UserMenu({ user }: { user: ShellUser }) {

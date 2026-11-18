@@ -1,6 +1,18 @@
 "use client";
 
-import { LayoutGrid, ShieldCheck, Users, ClipboardCheck, type LucideIcon } from "lucide-react";
+import {
+  CalendarCheck,
+  CalendarDays,
+  ClipboardCheck,
+  Clock,
+  FileSpreadsheet,
+  FolderKanban,
+  LayoutGrid,
+  ListChecks,
+  ShieldCheck,
+  Users,
+  type LucideIcon,
+} from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -11,7 +23,13 @@ const ICONS: Record<NavIconKey, LucideIcon> = {
   dashboard: LayoutGrid,
   household: Users,
   credentials: ShieldCheck,
+  shifts: CalendarDays,
+  hours: Clock,
+  checkin: CalendarCheck,
   compliance: ClipboardCheck,
+  hoursReview: ListChecks,
+  grants: FileSpreadsheet,
+  programs: FolderKanban,
 };
 
 /** Slim icon rail on lg+, compact brand bar on small screens (PillTabs handle mobile nav). */
@@ -19,7 +37,7 @@ export function Sidebar({ items }: { items: NavItem[] }) {
   const pathname = usePathname();
 
   return (
-    <aside className="w-full lg:w-20 bg-rail border-b lg:border-b-0 lg:border-r border-line flex lg:flex-col items-center justify-between px-4 py-3 lg:py-6 shrink-0 sticky top-0 z-30 lg:h-screen lg:self-start">
+    <aside className="print:hidden w-full lg:w-20 bg-rail border-b lg:border-b-0 lg:border-r border-line flex lg:flex-col items-center justify-between px-4 py-3 lg:py-6 shrink-0 sticky top-0 z-30 lg:h-screen lg:self-start">
       <div className="flex items-center gap-3 lg:flex-col">
         <Logo href="/dashboard" />
         <span className="font-bold text-sm tracking-tight lg:hidden">Gold Beach Youth Sports</span>
@@ -28,7 +46,7 @@ export function Sidebar({ items }: { items: NavItem[] }) {
       <nav aria-label="Primary" className="hidden lg:flex flex-col items-center gap-3 my-auto">
         {items.map((item) => {
           const Icon = ICONS[item.icon];
-          const active = isActivePath(pathname, item.href);
+          const active = isActivePath(pathname, item.href, items.map((i) => i.href));
           return (
             <Link
               key={item.href}
