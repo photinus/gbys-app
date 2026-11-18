@@ -19,7 +19,7 @@ export default async function EmergencySheetPage({
 
   let sheet;
   try {
-    sheet = await getEmergencySheet(ctx, seasonId);
+    sheet = await getEmergencySheet(ctx, seasonId, slug);
   } catch (e) {
     if (e instanceof DalError && (e.code === "NOT_FOUND" || e.code === "FORBIDDEN")) notFound();
     throw e;

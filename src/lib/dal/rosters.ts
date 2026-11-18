@@ -443,8 +443,16 @@ export async function cancelRegistration(
 // ---------------------------------------------------------------------------
 // Emergency sheet (medical data; audited)
 // ---------------------------------------------------------------------------
-export async function getEmergencySheet(ctx: SessionContext, seasonId: string): Promise<EmergencySheet> {
+export async function getEmergencySheet(
+  ctx: SessionContext,
+  seasonId: string,
+  expectedProgramSlug?: string
+): Promise<EmergencySheet> {
   const header = await loadSeasonHeader(ctx, seasonId);
+  // Reject a mismatched URL before any medical data is read or audited.
+  if (expectedProgramSlug !== undefined && header.programSlug !== expectedProgramSlug) {
+    throw new DalError("NOT_FOUND", "Season not found.");
+  }
 
   const rows = await db
     .select({
