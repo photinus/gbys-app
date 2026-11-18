@@ -1,9 +1,21 @@
 import { CalendarCheck, ShieldCheck, Users } from "lucide-react";
 import Link from "next/link";
 import { buttonStyles } from "@/components/ui/button";
+import { OpenRegistrationsSection } from "@/components/registration/open-registrations-section";
 import { PastelCard } from "@/components/ui/pastel-card";
+import { getSessionContext } from "@/lib/dal/context";
+import { listOpenSeasons, type OpenSeason } from "@/lib/dal/registrations";
 
-export default function LandingPage() {
+export const dynamic = "force-dynamic";
+
+export default async function LandingPage() {
+  const ctx = await getSessionContext();
+  let open: OpenSeason[] = [];
+  try {
+    open = await listOpenSeasons(ctx);
+  } catch (err) {
+    console.error("[landing] listOpenSeasons failed", err);
+  }
   return (
     <main className="mx-auto w-full max-w-6xl px-4 pb-8 pt-6 sm:px-8 sm:pt-12">
       <section className="max-w-2xl">
@@ -21,11 +33,16 @@ export default function LandingPage() {
           <Link href="/sign-in" className={buttonStyles({ size: "md" })}>
             Sign in
           </Link>
+          <a href="#open-registrations" className={buttonStyles({ variant: "secondary" })}>
+            Open registrations
+          </a>
           <a href="#how-it-works" className={buttonStyles({ variant: "secondary" })}>
             How it works
           </a>
         </div>
       </section>
+
+      <OpenRegistrationsSection seasons={open} />
 
       <section id="how-it-works" className="mt-14 grid grid-cols-1 gap-4 md:grid-cols-3">
         <PastelCard tone="lavender" title="Household and athletes">
@@ -39,7 +56,7 @@ export default function LandingPage() {
         </PastelCard>
         <PastelCard tone="mint" title="Programs and seasons">
           <CalendarCheck className="mb-3 h-5 w-5 text-emerald-700" aria-hidden />
-          Registration, schedules and facilities for GBYS clinics and our independent partner leagues are on the way.
+          Register for GBYS clinics and our independent partner leagues online. Schedules and facilities are on the way.
         </PastelCard>
       </section>
     </main>
