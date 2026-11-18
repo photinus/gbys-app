@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import { appleEnabled } from "@/lib/auth";
 import { getSessionContext } from "@/lib/dal/context";
 import { safeNext } from "@/lib/safe-redirect";
 import { SignInForm } from "./sign-in-form";
@@ -23,6 +24,7 @@ export default async function SignInPage({ searchParams }: { searchParams: Searc
       next={next}
       initialError={error ?? null}
       googleEnabled={!!process.env.GOOGLE_CLIENT_ID}
+      appleEnabled={appleEnabled}
     />
   );
 }

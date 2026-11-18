@@ -5,13 +5,44 @@ import { magicLink } from "better-auth/plugins";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import * as schema from "@/db/schema";
+import { createAppleClientSecret } from "./apple-client-secret";
 import { sendMagicLinkEmail } from "./email";
 
 const baseURL = process.env.BETTER_AUTH_URL || undefined;
 
+// Apple is enabled only when the Services ID, team, key id and .p8 are all set.
+// The client secret is a short-lived JWT minted from the key at startup (see
+// apple-client-secret.ts). A bad key logs an error and disables Apple instead
+// of crashing the app; nothing here runs against missing env at build time.
+function buildAppleProvider() {
+  const clientId = process.env.APPLE_CLIENT_ID;
+  const teamId = process.env.APPLE_TEAM_ID;
+  const keyId = process.env.APPLE_KEY_ID;
+  const privateKeyPem = process.env.APPLE_PRIVATE_KEY;
+  if (!clientId || !teamId || !keyId || !privateKeyPem) return null;
+  try {
+    return {
+      clientId,
+      clientSecret: createAppleClientSecret({ teamId, keyId, clientId, privateKeyPem }),
+      ...(process.env.APPLE_APP_BUNDLE_ID ? { appBundleIdentifier: process.env.APPLE_APP_BUNDLE_ID } : {}),
+    };
+  } catch (err) {
+    console.error("[auth] Sign in with Apple disabled:", err instanceof Error ? err.message : err);
+    return null;
+  }
+}
+
+const appleProvider = buildAppleProvider();
+/** True only when Apple is configured AND its client secret was generated. */
+export const appleEnabled = appleProvider !== null;
+
 export const auth = betterAuth({
   baseURL,
-  trustedOrigins: baseURL ? [baseURL] : [],
+  trustedOrigins: [
+    ...(baseURL ? [baseURL] : []),
+    // Apple's response_mode=form_post POSTs the callback from appleid.apple.com.
+    ...(appleProvider ? ["https://appleid.apple.com"] : []),
+  ],
   database: drizzleAdapter(db, {
     provider: "pg",
     schema: {
@@ -40,19 +71,22 @@ export const auth = betterAuth({
       },
     },
   },
-  // Register Google only when configured so the app boots without OAuth creds.
-  socialProviders: process.env.GOOGLE_CLIENT_ID
-    ? {
-        google: {
-          clientId: process.env.GOOGLE_CLIENT_ID,
-          clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
-        },
-      }
-    : {},
+  // Register providers only when configured so the app boots without OAuth creds.
+  socialProviders: {
+    ...(process.env.GOOGLE_CLIENT_ID
+      ? {
+          google: {
+            clientId: process.env.GOOGLE_CLIENT_ID,
+            clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
+          },
+        }
+      : {}),
+    ...(appleProvider ? { apple: appleProvider } : {}),
+  },
   account: {
     accountLinking: {
       enabled: true,
-      trustedProviders: ["google"],
+      trustedProviders: ["google", "apple"],
     },
   },
   databaseHooks: {
