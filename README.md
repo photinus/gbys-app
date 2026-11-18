@@ -31,13 +31,38 @@ update users set org_role = 'super_admin' where email = 'you@example.org';
 
 Checks: `npm run typecheck` and `npm run build`.
 
+## Sign in with Apple setup
+
+Optional. The button appears only when `APPLE_CLIENT_ID`, `APPLE_TEAM_ID`, `APPLE_KEY_ID` and
+`APPLE_PRIVATE_KEY` are all set.
+
+1. In the Apple Developer account, go to Certificates, Identifiers & Profiles, then Identifiers.
+   Create an **App ID** with the "Sign in with Apple" capability enabled.
+2. Create a **Services ID** (this identifier is `APPLE_CLIENT_ID`). Enable "Sign in with Apple" and
+   Configure it: primary App ID = the App ID above; Domains = `web-production-3f2daa3d.up.railway.app`
+   (plus any custom domain); Return URL = `https://<domain>/api/auth/callback/apple`
+   (one per domain).
+3. Under Keys, create a key with "Sign in with Apple" (choose the App ID). Download the `.p8` once;
+   Apple will not show it again. The Key ID is `APPLE_KEY_ID`; your Team ID (top right of the
+   developer account, or Membership) is `APPLE_TEAM_ID`.
+4. On Railway set `APPLE_PRIVATE_KEY` to the `.p8` contents (multi-line paste works, or one line with
+   `\n` for newlines). The app mints Apple's ES256 client secret from it at startup, so there is
+   nothing to rotate; every redeploy regenerates it (a process that runs more than ~180 days needs a
+   restart). `APPLE_APP_BUNDLE_ID` is only needed for a native iOS app.
+5. Apple does not accept `localhost` or `http` return URLs, so test on the Railway domain.
+
+**Hide My Email:** users who choose it get an `@privaterelay.appleid.com` address. Mail to that address
+is dropped unless the sender is registered: in Apple Developer, go to Sign in with Apple for Email
+Communication and add the sending domain/address (the domain of `NUNTLY_FROM_EMAIL`), with SPF and DKIM
+set up for it. Without this, magic links and notifications never reach those users.
+
 ## Deploying (Railway)
 
 - `web` builds from `main`. Set the pre-deploy command to `npm run db:migrate:prod`
   (runs `scripts/migrate.mjs` using production dependencies only).
 - Required variables: `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `CRON_SECRET`,
   `S3_*`. Optional until configured: `GOOGLE_CLIENT_ID/SECRET` (Google button is hidden
-  without it) and `NUNTLY_API_KEY` (emails are logged to the console without it).
+  without it), `APPLE_*` (see below; Apple button is hidden unless all four are set) and `NUNTLY_API_KEY` (emails are logged to the console without it).
 - The S3 bucket needs a CORS rule allowing `PUT` from the app origin (browser proof uploads).
 - `cron-compliance` POSTs to `http://$WEB_PRIVATE_DOMAIN:<web port>/api/cron/compliance` with
   `Authorization: Bearer $CRON_SECRET` (same `CRON_SECRET` on both services). The port must
