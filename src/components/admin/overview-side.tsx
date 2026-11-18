@@ -42,8 +42,8 @@ export function OverviewSide({ o }: { o: AdminOverview }) {
             {shifts.next.map((s) => (
               <li key={s.id} className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="truncate font-semibold text-charcoal">{s.title}</p>
-                  <p className="truncate text-stone-500">
+                  <p className="font-semibold text-charcoal">{s.title}</p>
+                  <p className="text-stone-500">
                     {formatDateTime(s.startsAt)}
                     {s.programName ? ` · ${s.programName}` : " · Org-wide"}
                   </p>
@@ -80,7 +80,7 @@ export function OverviewSide({ o }: { o: AdminOverview }) {
               <li key={s.id}>
                 <Link href={`/admin/programs/${s.programId}`} className="flex items-start justify-between gap-2 hover:opacity-80">
                   <div className="min-w-0">
-                    <p className="truncate font-semibold text-charcoal">
+                    <p className="font-semibold text-charcoal">
                       {s.programName} · {s.name}
                     </p>
                     <p className="flex items-center gap-1 text-stone-500">

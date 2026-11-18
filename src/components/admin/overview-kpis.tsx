@@ -26,10 +26,10 @@ export function OverviewKpis({ kpis, year }: { kpis: AdminOverview["kpis"]; year
       <KpiCard
         icon={<Clock className="h-5 w-5" />}
         tone="coral"
-        label={`Volunteer Hours (${year} YTD)`}
+        label="Volunteer Hours (YTD)"
         value={formatHours(kpis.ytdMinutes)}
         delta={`${formatCents(kpis.ytdValueCents)} value`}
-        hint={`Verified ledger entries · current rate ${formatCents(kpis.currentRateCents)}/hr`}
+        hint={`${year} verified ledger · ${formatCents(kpis.currentRateCents)}/hr now`}
       />
       <KpiCard
         icon={<Globe2 className="h-5 w-5" />}
