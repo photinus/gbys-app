@@ -45,7 +45,7 @@ function athleteFromForm(fd: FormData) {
 }
 
 export async function updateProfileAction(
-  _prev: ActionResult | null,
+  _prev: ActionResult<unknown> | null,
   formData: FormData
 ): Promise<ActionResult> {
   const res = await runAction(async (ctx) => {
@@ -61,7 +61,7 @@ export async function updateProfileAction(
 }
 
 export async function createAthleteAction(
-  _prev: ActionResult | null,
+  _prev: ActionResult<unknown> | null,
   formData: FormData
 ): Promise<ActionResult<{ id: string }>> {
   const res = await runAction((ctx) =>
@@ -72,7 +72,7 @@ export async function createAthleteAction(
 }
 
 export async function updateAthleteAction(
-  _prev: ActionResult | null,
+  _prev: ActionResult<unknown> | null,
   formData: FormData
 ): Promise<ActionResult<{ id: string }>> {
   const athleteId = str(formData, "athleteId");
@@ -89,7 +89,7 @@ export async function fetchAthleteDetailAction(athleteId: string): Promise<Actio
 }
 
 export async function createInviteAction(
-  _prev: ActionResult<{ emailSent: boolean }> | null,
+  _prev: ActionResult<unknown> | null,
   formData: FormData
 ): Promise<ActionResult<{ emailSent: boolean }>> {
   const res = await runAction(async (ctx) => {

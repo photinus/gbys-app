@@ -18,7 +18,3 @@ export function useActionForm<T>(
   };
   return { state, pending, onSubmit };
 }
-
-export function FormError({ state }: { state: ActionResult<unknown> | null }) {
-  return null as unknown as never;
-}
