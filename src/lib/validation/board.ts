@@ -43,7 +43,50 @@ const localDateTime = (label: string) =>
 // ---------------------------------------------------------------------------
 // Seats
 // ---------------------------------------------------------------------------
-export const SEAT_POSITIONS = ["President", "Vice President", "Treasurer", "Secretary", "Director", "Advisor"] as const;
+/** Fallback when org_settings has no row. The live list is org_settings.board_positions. */
+export const DEFAULT_BOARD_POSITIONS: readonly string[] = ["President", "Vice President", "Secretary", "Treasurer", "Director"];
+
+export const POSITION_MIN = 2;
+export const POSITION_MAX = 60;
+export const POSITIONS_MAX_COUNT = 30;
+
+/** Configurable seat titles: trimmed, 2-60 chars, case-insensitively unique, 1-30 entries, order kept. */
+export const positionListSchema = z
+  .array(
+    z
+      .string()
+      .trim()
+      .min(POSITION_MIN, `Each position needs at least ${POSITION_MIN} characters.`)
+      .max(POSITION_MAX, `Each position can be at most ${POSITION_MAX} characters.`)
+  )
+  .min(1, "Keep at least one position.")
+  .max(POSITIONS_MAX_COUNT, `You can have at most ${POSITIONS_MAX_COUNT} positions.`)
+  .superRefine((list, ctx) => {
+    const seen = new Set<string>();
+    for (const p of list) {
+      const k = p.toLowerCase();
+      if (seen.has(k)) {
+        ctx.addIssue({ code: "custom", message: `"${p}" appears twice. Positions must be unique.` });
+        return;
+      }
+      seen.add(k);
+    }
+  });
+
+/** Sort key: configured order first; unknown positions after, alphabetical. */
+export function comparePositions(a: string, b: string, order: readonly string[]): number {
+  const idx = (p: string) => order.findIndex((o) => o.toLowerCase() === p.toLowerCase());
+  const ia = idx(a);
+  const ib = idx(b);
+  if (ia !== -1 && ib !== -1) return ia - ib;
+  if (ia !== -1) return -1;
+  if (ib !== -1) return 1;
+  return a.localeCompare(b);
+}
+
+export function samePosition(a: string, b: string): boolean {
+  return a.trim().toLowerCase() === b.trim().toLowerCase();
+}
 
 export const memberInputSchema = z
   .object({
@@ -56,7 +99,7 @@ export const memberInputSchema = z
       .transform((v) => (v ? v : null))
       .pipe(z.union([z.null(), z.string().email("Enter a valid email address, or leave it blank.")])),
     displayName: z.string().trim().min(2, "Enter the director's name.").max(100, "Name is too long (max 100 characters)."),
-    position: z.string().trim().min(2, "Enter a position, like President or Director.").max(80, "Position is too long (max 80 characters)."),
+    position: z.string().trim().min(2, "Choose or enter a position, like President or Director.").max(80, "Position is too long (max 80 characters)."),
     isVotingDirector: z.boolean(),
     termStart: ymd("Term start"),
     termEnd: optionalYmd("Term end"),

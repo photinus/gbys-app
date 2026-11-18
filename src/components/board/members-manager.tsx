@@ -2,15 +2,17 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { AlertTriangle, Plus } from "lucide-react";
+import { AlertTriangle, ListOrdered, Plus } from "lucide-react";
 import { Button, Card, CardHeader, EmptyState, Table, TBody, TD, TH, THead, TR } from "@/components/ui";
 import type { BoardMemberView } from "@/lib/dal/board-members";
 import { formatDateTime, formatDob } from "@/lib/format";
 import { EndSeatModal } from "./end-seat-modal";
 import { MemberFormModal } from "./member-form-modal";
+import { PositionsModal } from "./positions-modal";
 import { SeatBadges } from "./seat-badges";
 
-export function MembersManager({ members, showEnded }: { members: BoardMemberView[]; showEnded: boolean }) {
+export function MembersManager({ members, positions, showEnded }: { members: BoardMemberView[]; positions: string[]; showEnded: boolean }) {
+  const [managing, setManaging] = useState(false);
   const [editing, setEditing] = useState<BoardMemberView | null>(null);
   const [adding, setAdding] = useState(false);
   const [ending, setEnding] = useState<BoardMemberView | null>(null);
@@ -28,6 +30,9 @@ export function MembersManager({ members, showEnded }: { members: BoardMemberVie
             >
               {showEnded ? "Hide ended seats" : "Show ended seats"}
             </Link>
+            <Button size="sm" variant="secondary" onClick={() => setManaging(true)}>
+              <ListOrdered className="h-4 w-4" aria-hidden /> Manage positions
+            </Button>
             <Button size="sm" onClick={() => setAdding(true)}>
               <Plus className="h-4 w-4" aria-hidden /> Add seat
             </Button>
@@ -98,7 +103,8 @@ export function MembersManager({ members, showEnded }: { members: BoardMemberVie
           </TBody>
         </Table>
       )}
-      <MemberFormModal open={adding || !!editing} onClose={() => (setAdding(false), setEditing(null))} member={editing} />
+      <MemberFormModal open={adding || !!editing} onClose={() => (setAdding(false), setEditing(null))} member={editing} positions={positions} members={members} />
+      <PositionsModal open={managing} onClose={() => setManaging(false)} positions={positions} members={members} />
       <EndSeatModal open={!!ending} onClose={() => setEnding(null)} member={ending} />
     </Card>
   );

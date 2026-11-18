@@ -1,5 +1,7 @@
 /** Cookie holding the desktop sidebar state ("collapsed" | "expanded"), read server-side. */
 export const SIDEBAR_COOKIE = "gbys_sidebar";
+/** Session cookie (no expiry): set once the first-load sidebar intro has been shown. */
+export const INTRO_COOKIE = "gbys_sidebar_intro";
 
 export type OrgRole = "super_admin" | "board_member" | "member";
 

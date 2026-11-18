@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { getBranding } from "@/lib/dal/settings";
 import { isFeatureEnabled } from "@/lib/features";
 import { MobileNav } from "./mobile-nav";
-import { getNavGroups, SIDEBAR_COOKIE } from "./nav";
+import { getNavGroups, INTRO_COOKIE, SIDEBAR_COOKIE } from "./nav";
 import { Sidebar } from "./sidebar";
 import { TopBar } from "./top-bar";
 import type { ShellUser } from "./user-menu";
@@ -29,6 +29,8 @@ export async function AppShell({
   const sidebarCookie = jar.get(SIDEBAR_COOKIE)?.value;
   // Legacy values: "expanded" -> pinned, "collapsed" -> unpinned. No cookie -> unpinned.
   const initialPinned = sidebarCookie === "pinned" || sidebarCookie === "expanded";
+  // Intro only on the first render of a browser session (cookie is set by the client on mount).
+  const initialIntro = !initialPinned && jar.get(INTRO_COOKIE)?.value !== "seen";
   const groups = getNavGroups(user.orgRole, {
     isShiftCoordinator: user.isShiftCoordinator,
     isProgramStaff: user.isProgramStaff,
@@ -49,6 +51,7 @@ export async function AppShell({
         orgName={branding.orgName}
         logoUrl={branding.logoUrl}
         initialPinned={initialPinned}
+        initialIntro={initialIntro}
       />
       <div className="flex-1 flex flex-col min-w-0">
         <MobileNav

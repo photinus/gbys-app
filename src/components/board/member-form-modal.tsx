@@ -1,15 +1,21 @@
 "use client";
 
-import { useEffect } from "react";
-import { Button, Field, Input, Modal, Switch, Textarea, useToast } from "@/components/ui";
+import { useEffect, useState } from "react";
+import { Button, Field, Input, Modal, Select, Switch, Textarea, useToast } from "@/components/ui";
 import { FormError } from "@/components/household/form-error";
 import { useActionForm } from "@/components/household/use-action-form";
 import { addMemberAction, updateMemberAction } from "@/app/(admin)/admin/board/members/actions";
 import type { BoardMemberView } from "@/lib/dal/board-members";
 import { utcToLaDateInput } from "@/lib/format";
-import { SEAT_POSITIONS } from "@/lib/validation/board";
+import { samePosition } from "@/lib/validation/board";
 
-export function MemberFormModal({ open, onClose, member }: { open: boolean; onClose: () => void; member: BoardMemberView | null }) {
+interface FormProps {
+  member: BoardMemberView | null;
+  positions: string[];
+  members: BoardMemberView[];
+}
+
+export function MemberFormModal({ open, onClose, member, positions, members }: { open: boolean; onClose: () => void } & FormProps) {
   return (
     <Modal
       open={open}
@@ -17,12 +23,52 @@ export function MemberFormModal({ open, onClose, member }: { open: boolean; onCl
       title={member ? `Edit seat: ${member.displayName}` : "Add a board seat"}
       description="A seat is one director's term. Link their GBYS sign-in email so they can vote electronically."
     >
-      <MemberForm key={member?.id ?? "new"} member={member} onDone={onClose} />
+      <MemberForm key={member?.id ?? "new"} member={member} positions={positions} members={members} onDone={onClose} />
     </Modal>
   );
 }
 
-function MemberForm({ member, onDone }: { member: BoardMemberView | null; onDone: () => void }) {
+const OTHER = "__other__";
+
+function PositionField({ member, positions, members }: FormProps) {
+  const listed = member ? positions.find((p) => samePosition(p, member.position)) : undefined;
+  const [choice, setChoice] = useState<string>(member ? (listed ?? OTHER) : (positions[positions.length - 1] ?? ""));
+  const [other, setOther] = useState(member && !listed ? member.position : "");
+  const value = choice === OTHER ? other.trim() : choice;
+  const last = positions[positions.length - 1];
+  const dup =
+    value && !(last && samePosition(last, value))
+      ? members.find((m) => m.id !== member?.id && m.status === "current" && samePosition(m.position, value))
+      : undefined;
+  return (
+    <div className="space-y-2">
+      <Field label="Position" hint="Manage the list with the Manage positions button.">
+        <Select value={choice} onChange={(e) => setChoice(e.target.value)} aria-label="Position" required>
+          {positions.length === 0 ? <option value="">Choose a position...</option> : null}
+          {positions.map((p) => (
+            <option key={p} value={p}>
+              {p}
+            </option>
+          ))}
+          <option value={OTHER}>Other...</option>
+        </Select>
+      </Field>
+      {choice === OTHER ? (
+        <Field label="Other title" hint="A one-off title for this seat (2 to 80 characters).">
+          <Input value={other} onChange={(e) => setOther(e.target.value)} required minLength={2} maxLength={80} aria-label="Other position title" />
+        </Field>
+      ) : null}
+      <input type="hidden" name="position" value={value} />
+      {dup ? (
+        <p role="status" data-testid="dup-position" className="rounded-xl bg-amber-50 px-3.5 py-2 text-xs text-amber-900">
+          {dup.displayName} already holds {dup.position}. You can still save this seat.
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function MemberForm({ member, positions, members, onDone }: FormProps & { onDone: () => void }) {
   const toast = useToast();
   const editing = !!member;
   const { state, pending, onSubmit } = useActionForm(editing ? updateMemberAction : addMemberAction);
@@ -46,14 +92,7 @@ function MemberForm({ member, onDone }: { member: BoardMemberView | null; onDone
         <Input name="email" type="email" maxLength={254} defaultValue={member?.account?.email ?? ""} placeholder="jordan@example.com" disabled={locked && !!member?.userId} />
       </Field>
       {locked && member?.userId ? <input type="hidden" name="email" value={member.account?.email ?? ""} /> : null}
-      <Field label="Position">
-        <Input name="position" required minLength={2} maxLength={80} list="seat-positions" defaultValue={member?.position ?? "Director"} />
-      </Field>
-      <datalist id="seat-positions">
-        {SEAT_POSITIONS.map((p) => (
-          <option key={p} value={p} />
-        ))}
-      </datalist>
+      <PositionField member={member} positions={positions} members={members} />
       <div className="flex items-center justify-between gap-4 rounded-xl border border-line bg-alabaster/60 px-4 py-3">
         <div className="min-w-0">
           <p className="text-sm font-semibold text-charcoal">Voting director</p>

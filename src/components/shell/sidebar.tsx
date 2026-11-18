@@ -4,33 +4,42 @@ import { PanelLeftClose, PanelLeftOpen, Pin, PinOff } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { Logo } from "./logo";
-import { SIDEBAR_COOKIE, type NavGroup } from "./nav";
+import { INTRO_COOKIE, SIDEBAR_COOKIE, type NavGroup } from "./nav";
 import { NavList } from "./nav-list";
 
-const AUTO_COLLAPSE_MS = 3000;
+const INTRO_MS = 3000;
 const LEAVE_COLLAPSE_MS = 300;
+const PEEK_OPEN_MS = 200;
+const PEEK_CLOSE_MS = 150;
 
 /**
  * Desktop (lg+) sidebar with pinned / unpinned modes. `initialPinned` comes from the gbys_sidebar
- * cookie (read server-side by AppShell). Pinned: always expanded and reserves the full width.
- * Unpinned: reserves only the 80px rail; the expanded sidebar is an overlay (content never
- * shifts). It starts expanded on every full page load (so the first paint shows labels), then
- * auto-collapses after ~3s unless hovered or keyboard-focused; hover / focus-within re-expands.
+ * cookie and `initialIntro` from the session cookie gbys_sidebar_intro (both read server-side by
+ * AppShell).
+ * - Pinned: always expanded, reserves the full width, no intro.
+ * - Unpinned, first render of the browser session (`initialIntro`): expanded and PUSHING content
+ *   (slot reserves 248px) for ~3s, then collapses to the 80px rail once. Hover / keyboard focus
+ *   cancels the auto-collapse until the pointer leaves / focus leaves.
+ * - Unpinned otherwise: the 80px rail. Hover-to-peek is an overlay that opens after ~200ms of
+ *   continuous hover and closes ~150ms after leave; keyboard focus-visible opens immediately and
+ *   closes on blur; clicking a link closes it at once.
  */
 export function Sidebar({
   groups,
   orgName,
   logoUrl,
   initialPinned,
+  initialIntro,
 }: {
   groups: NavGroup[];
   orgName: string;
   logoUrl: string | null;
   initialPinned: boolean;
+  initialIntro: boolean;
 }) {
   const [pinned, setPinned] = useState(initialPinned);
-  // Unpinned overlay state; starts open so server HTML and first paint show the labels.
-  const [open, setOpen] = useState(true);
+  const [intro, setIntro] = useState(initialIntro && !initialPinned);
+  const [peek, setPeek] = useState(false);
   const hovered = useRef(false);
   const focused = useRef(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -39,26 +48,38 @@ export function Sidebar({
     if (timer.current) clearTimeout(timer.current);
     timer.current = null;
   }, []);
-  const scheduleCollapse = useCallback(
-    (ms: number) => {
+  const later = useCallback(
+    (ms: number, fn: () => void) => {
       clearTimer();
       timer.current = setTimeout(() => {
         timer.current = null;
-        if (!hovered.current && !focused.current) setOpen(false);
+        fn();
       }, ms);
     },
     [clearTimer],
   );
+  const endIntroLater = useCallback(
+    (ms: number) =>
+      later(ms, () => {
+        if (!hovered.current && !focused.current) setIntro(false);
+      }),
+    [later],
+  );
 
-  // Initial auto-collapse, once per full page load (the layout persists across navigations).
+  // Once per mount: mark the intro as seen for this browser session, and run it if it was rendered.
   useEffect(() => {
-    if (!initialPinned) scheduleCollapse(AUTO_COLLAPSE_MS);
+    try {
+      document.cookie = `${INTRO_COOKIE}=seen; path=/; samesite=lax`;
+    } catch {
+      // cookies blocked: worst case the intro replays on the next full load
+    }
+    if (initialIntro && !initialPinned) endIntroLater(INTRO_MS);
     return clearTimer;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const expanded = pinned || open;
-  const overlay = !pinned && open;
+  const expanded = pinned || intro || peek;
+  const overlay = !pinned && !intro && peek;
 
   function writeCookie(value: "pinned" | "unpinned") {
     try {
@@ -72,7 +93,8 @@ export function Sidebar({
     clearTimer();
     focused.current = false;
     setPinned(false);
-    setOpen(false);
+    setIntro(false);
+    setPeek(false);
     writeCookie("unpinned");
   }
 
@@ -80,12 +102,14 @@ export function Sidebar({
     clearTimer();
     if (pinned) {
       setPinned(false);
-      setOpen(true);
+      setPeek(true);
       writeCookie("unpinned");
       if (!hovered.current && !focused.current)
-        scheduleCollapse(LEAVE_COLLAPSE_MS);
+        later(PEEK_CLOSE_MS, () => setPeek(false));
     } else {
       setPinned(true);
+      setIntro(false);
+      setPeek(false);
       writeCookie("pinned");
     }
   }
@@ -93,11 +117,20 @@ export function Sidebar({
   function onEnter() {
     hovered.current = true;
     clearTimer();
-    if (!pinned) setOpen(true);
+    if (pinned || intro || peek) return;
+    later(PEEK_OPEN_MS, () => {
+      if (hovered.current) setPeek(true);
+    });
   }
   function onLeave() {
     hovered.current = false;
-    if (!pinned) scheduleCollapse(LEAVE_COLLAPSE_MS);
+    if (pinned) return;
+    if (intro) return endIntroLater(LEAVE_COLLAPSE_MS);
+    if (focused.current) {
+      clearTimer();
+      return;
+    }
+    later(PEEK_CLOSE_MS, () => setPeek(false));
   }
   function onFocus(e: React.FocusEvent) {
     // Only keyboard focus keeps it open; a mouse click must not pin it open after the pointer leaves.
@@ -110,12 +143,21 @@ export function Sidebar({
     if (!visible) return;
     focused.current = true;
     clearTimer();
-    if (!pinned) setOpen(true);
+    if (!pinned && !intro) setPeek(true);
   }
   function onBlur(e: React.FocusEvent) {
     if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
     focused.current = false;
-    if (!pinned) scheduleCollapse(LEAVE_COLLAPSE_MS);
+    if (pinned) return;
+    if (intro) return endIntroLater(LEAVE_COLLAPSE_MS);
+    if (!hovered.current) later(PEEK_CLOSE_MS, () => setPeek(false));
+  }
+  function onClickCapture(e: React.MouseEvent) {
+    if (pinned || intro) return;
+    if ((e.target as HTMLElement).closest("a")) {
+      clearTimer();
+      setPeek(false);
+    }
   }
 
   const collapsed = !expanded;
@@ -129,10 +171,11 @@ export function Sidebar({
       onMouseLeave={onLeave}
       onFocus={onFocus}
       onBlur={onBlur}
+      onClickCapture={onClickCapture}
       className={cn(
         "print:hidden hidden lg:block shrink-0 sticky top-0 h-screen z-30",
-        "transition-[width] duration-200 ease-out motion-reduce:transition-none",
-        pinned ? "w-[248px]" : "w-20",
+        "transition-[width] duration-300 ease-out motion-reduce:transition-none",
+        pinned || intro ? "w-[248px]" : "w-20",
       )}
     >
       <aside
@@ -179,7 +222,7 @@ export function Sidebar({
             <button
               type="button"
               onClick={() => {
-                setOpen(true);
+                setPeek(true);
                 focused.current = true;
               }}
               aria-expanded={false}

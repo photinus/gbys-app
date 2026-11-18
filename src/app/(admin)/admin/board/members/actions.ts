@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { runAction, type ActionResult } from "@/lib/dal/context";
-import { addBoardMember, endBoardMember, updateBoardMember, type SeatWarning } from "@/lib/dal/board-members";
+import { addBoardMember, endBoardMember, updateBoardMember, updateBoardPositions, type SeatWarning } from "@/lib/dal/board-members";
 import { memberInputFromForm } from "@/lib/validation/board";
 
 // Authorization (board only) and validation live in the DAL.
@@ -33,6 +33,13 @@ export async function updateMemberAction(_prev: ActionResult<{ warnings: SeatWar
 
 export async function endMemberAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
   const res = await runAction((ctx) => endBoardMember(ctx, str(fd, "id"), { endedAt: str(fd, "endedAt"), reason: str(fd, "reason") }));
+  if (res.ok) refresh();
+  return res;
+}
+
+/** Replaces the configured position list (ordered). Existing seats keep their titles. */
+export async function savePositionsAction(positions: string[]): Promise<ActionResult<{ positions: string[]; changed: boolean }>> {
+  const res = await runAction((ctx) => updateBoardPositions(ctx, Array.isArray(positions) ? positions : []));
   if (res.ok) refresh();
   return res;
 }
