@@ -68,12 +68,16 @@ export default async function AdminVolunteerRolesPage({ searchParams }: { search
         </p>
       </div>
 
-      {pendingPrograms.length > 0 ? (
-        <Card data-testid="pending-queue">
-          <CardHeader title="Program sign-ups waiting for approval" description="Across all programs. Program admins can also approve their own." />
-          <SignupsPanel rows={pendingPrograms} showProgram actions={actions} />
-        </Card>
-      ) : null}
+      <Card data-testid="pending-queue">
+        <CardHeader title="Program sign-ups waiting for approval" description="Across all programs. Program admins can also approve their own." />
+        <SignupsPanel
+          rows={pendingPrograms}
+          showProgram
+          actions={actions}
+          emptyTitle="Nothing waiting for approval"
+          emptyDescription="New program sign-ups that need approval will show up here."
+        />
+      </Card>
 
       <nav aria-label="Sections" className="flex gap-1 rounded-full border border-line bg-white p-1 text-sm font-semibold shadow-sm w-fit max-w-full overflow-x-auto">
         {tabs.map((t) => (

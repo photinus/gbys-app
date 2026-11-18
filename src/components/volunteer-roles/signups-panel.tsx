@@ -27,19 +27,19 @@ export function SignupsPanel({
   rows,
   showProgram,
   actions,
+  emptyTitle = "No sign-ups yet",
+  emptyDescription = "Volunteers appear here when they sign up for a role, or when you assign them.",
 }: {
   rows: ReviewRow[];
   showProgram?: boolean;
+  emptyTitle?: string;
+  emptyDescription?: string;
   actions: Pick<RoleActions, "approve" | "decline" | "end">;
 }) {
   const [dialog, setDialog] = useState<Dialog>(null);
   const pending = rows.filter((r) => r.status === "pending");
   const active = rows.filter((r) => r.status === "active");
   const history = rows.filter((r) => r.status !== "pending" && r.status !== "active");
-
-  if (rows.length === 0) {
-    return <EmptyState title="No sign-ups yet" description="Volunteers appear here when they sign up for a role, or when you assign them." />;
-  }
 
   const section = (title: string, list: ReviewRow[], testid: string) =>
     list.length ? (
@@ -57,6 +57,8 @@ export function SignupsPanel({
 
   return (
     <div className="space-y-6">
+      {/* Modals stay mounted when the list empties so the success toast still fires. */}
+      {rows.length === 0 ? <EmptyState title={emptyTitle} description={emptyDescription} /> : null}
       {section("Waiting for approval", pending, "signups-pending")}
       {section("Active", active, "signups-active")}
       {section("History", history, "signups-history")}
