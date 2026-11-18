@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { InactiveProgramBanner } from "@/components/programs/inactive-banner";
 import { SeasonEditor } from "@/components/seasons/season-editor";
 import { DalError, requireSession } from "@/lib/dal/context";
 import { getNewSeasonContext } from "@/lib/dal/seasons";
@@ -19,6 +20,7 @@ export default async function NewSeasonPage({ params }: { params: Promise<{ slug
   }
   return (
     <div className="mx-auto w-full max-w-5xl space-y-6">
+      {!data.program.isActive ? <InactiveProgramBanner /> : null}
       <div>
         <Link href={`/programs/${slug}`} className="text-xs font-semibold text-stone-500 hover:text-charcoal">
           {data.program.name}

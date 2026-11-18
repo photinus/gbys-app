@@ -52,7 +52,7 @@ export function getNavGroups(orgRole: OrgRole, opts: NavOptions = {}): NavGroup[
   const coordinator = shiftsOn && (board || !!opts.isShiftCoordinator);
 
   const programs: NavItem[] = [
-    ...(staff ? [{ label: "My programs", href: "/programs", icon: "programHub" as const }] : []),
+    ...(staff ? [{ label: board ? "Program hubs" : "My programs", href: "/programs", icon: "programHub" as const }] : []),
     ...(coordinator
       ? [{ label: "Manage shifts", href: "/volunteer/shifts/manage", icon: "checkin" as const }]
       : []),

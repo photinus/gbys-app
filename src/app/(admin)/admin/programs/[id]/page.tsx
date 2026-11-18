@@ -2,11 +2,15 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader } from "@/components/ui/card";
+import { InactiveProgramBanner } from "@/components/programs/inactive-banner";
 import { ProgramEditForm } from "@/components/programs/program-edit-form";
 import { ProgramRolesPanel } from "@/components/programs/program-roles-panel";
 import { DalError, isBoard, requireSession } from "@/lib/dal/context";
 import { getProgramAdmin, listCredentialOptions, listProgramRoles } from "@/lib/dal/programs";
+import { getProgramHub } from "@/lib/dal/seasons";
+import { getProgramRoleSummary } from "@/lib/dal/volunteer-roles";
 
 export const metadata: Metadata = { title: "Program" };
 
@@ -22,7 +26,15 @@ export default async function ProgramDetailPage({ params }: { params: Promise<{ 
     if (err instanceof DalError && err.code === "NOT_FOUND") notFound();
     throw err;
   }
-  const [credentials, roles] = await Promise.all([listCredentialOptions(ctx, id), listProgramRoles(ctx, id)]);
+  const [credentials, roles, hub, roleSummary] = await Promise.all([
+    listCredentialOptions(ctx, id),
+    listProgramRoles(ctx, id),
+    getProgramHub(ctx, program.slug),
+    getProgramRoleSummary(ctx, id),
+  ]);
+  const base = `/programs/${program.slug}`;
+  const activeSeasons = hub.seasons.filter((s) => s.isActive);
+  const linkCls = "text-sm font-semibold text-indigo-700 hover:underline";
 
   return (
     <div className="space-y-6">
@@ -32,6 +44,45 @@ export default async function ProgramDetailPage({ params }: { params: Promise<{ 
         </Link>
         <h1 className="mt-2 text-2xl font-bold tracking-tight sm:text-3xl">{program.name}</h1>
       </div>
+
+      {!program.isActive ? <InactiveProgramBanner /> : null}
+
+      <Card data-testid="program-management">
+        <CardHeader title="Program management" description="Seasons, registrations, rosters and volunteer roles live in the program hub" />
+        <ul className="divide-y divide-line-soft">
+          <li className="flex flex-col gap-1 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <Link href={base} className={linkCls}>Seasons &amp; registration</Link>
+              <p className="text-xs text-stone-500">
+                {hub.seasons.length} {hub.seasons.length === 1 ? "season" : "seasons"}, {activeSeasons.length} active
+              </p>
+            </div>
+          </li>
+          <li className="flex flex-col gap-1 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <Link href={`${base}/roles`} className={linkCls}>Volunteer roles</Link>
+            </div>
+            <div className="flex flex-wrap gap-2" data-testid="roles-summary">
+              <Badge tone="success">{roleSummary.activeRoles} active {roleSummary.activeRoles === 1 ? "role" : "roles"}</Badge>
+              <Badge tone={roleSummary.pendingSignups > 0 ? "warning" : "neutral"}>
+                {roleSummary.pendingSignups} pending {roleSummary.pendingSignups === 1 ? "sign-up" : "sign-ups"}
+              </Badge>
+            </div>
+          </li>
+          {activeSeasons.map((s) => (
+            <li key={s.id} data-testid="active-season" className="flex flex-col gap-1 py-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <Link href={`${base}/seasons/${s.id}`} className="text-sm font-semibold text-charcoal hover:underline">{s.name}</Link>
+                <p className="text-xs text-stone-500">{s.liveRegistrations} registered</p>
+              </div>
+              <div className="flex flex-wrap gap-x-4 gap-y-1">
+                <Link href={`${base}/seasons/${s.id}/registrations`} className={linkCls}>Registrations</Link>
+                <Link href={`${base}/seasons/${s.id}/emergency`} className={linkCls}>Emergency sheet</Link>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </Card>
 
       <Card>
         <CardHeader title="Program details" description="Changes are audited" />

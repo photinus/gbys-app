@@ -15,6 +15,10 @@ import {
 export async function createRoleAction(_prev: ActionResult<unknown> | null, fd: FormData) {
   return createRoleImpl(fd, true);
 }
+/** Create a role in the program chosen on the "All programs" tab (programId comes from the form). */
+export async function createProgramRoleAction(_prev: ActionResult<unknown> | null, fd: FormData) {
+  return createRoleImpl(fd, false);
+}
 export async function updateRoleAction(_prev: ActionResult<unknown> | null, fd: FormData) {
   return updateRoleImpl(fd);
 }

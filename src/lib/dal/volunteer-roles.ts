@@ -25,7 +25,7 @@ import {
   type RoleInput,
 } from "@/lib/validation/volunteer-roles";
 import { DalError, isBoard, type ProgramRole, type SessionContext } from "./context";
-import { canViewRoster } from "./permissions";
+import { assertProgramReachable, canViewRoster } from "./permissions";
 import {
   canManageVolunteerRole,
   getAssignmentProgress,
@@ -126,6 +126,8 @@ export interface ReviewRow {
   canManage: boolean;
   /** The signed-in user's own sign-up (cannot be approved by themselves for a granting role). */
   isSelf: boolean;
+  /** Own sign-up for a permission-granting role and ctx is not board: another manager must approve. */
+  selfApprovalBlocked: boolean;
 }
 
 export interface RoleCredentialOption {
@@ -143,21 +145,21 @@ export interface TermOptions {
 // Scope helpers
 // ---------------------------------------------------------------------------
 
-async function loadProgram(programId: string) {
+async function loadProgram(ctx: SessionContext, programId: string) {
   parseId(programId, "Program");
   const [p] = await db
     .select({ id: programs.id, slug: programs.slug, name: programs.name, isActive: programs.isActive })
     .from(programs)
     .where(and(eq(programs.id, programId), isNull(programs.deletedAt)))
     .limit(1);
-  if (!p) throw new DalError("NOT_FOUND", "Program not found.");
+  if (!p || (!p.isActive && !isBoard(ctx))) throw new DalError("NOT_FOUND", "Program not found.");
   return p;
 }
 
 /** Viewing needs program staff (or board); org-wide / all scopes are board-only. */
 async function authorizeScope(ctx: SessionContext, scope: RoleScope) {
   if ("programId" in scope) {
-    await loadProgram(scope.programId);
+    await loadProgram(ctx, scope.programId);
     if (!canViewRoster(ctx, scope.programId)) throw forbidden();
     return;
   }
@@ -194,7 +196,7 @@ export async function getProgramForRoles(ctx: SessionContext, slug: string) {
     .from(programs)
     .where(and(eq(programs.slug, slug), isNull(programs.deletedAt)))
     .limit(1);
-  if (!program) throw new DalError("NOT_FOUND", "Program not found.");
+  if (!program || (!program.isActive && !isBoard(ctx))) throw new DalError("NOT_FOUND", "Program not found.");
   if (!canViewRoster(ctx, program.id)) throw forbidden();
   return { program, canManage: canManageVolunteerRole(ctx, program.id) };
 }
@@ -208,7 +210,7 @@ export async function getProgramRoleSummary(
   const [r] = await db
     .select({
       activeRoles: sql<number>`count(*) filter (where ${volunteerRoles.isActive})`.mapWith(Number),
-      pendingSignups: sql<number>`coalesce(sum((select count(*) from ${volunteerRoleAssignments} a where a.role_id = ${volunteerRoles.id} and a.status = 'pending')), 0)`.mapWith(Number),
+      pendingSignups: sql<number>`coalesce(sum((select count(*) from ${volunteerRoleAssignments} a where a.role_id = volunteer_roles.id and a.status = 'pending')), 0)`.mapWith(Number),
     })
     .from(volunteerRoles)
     .where(eq(volunteerRoles.programId, programId));
@@ -371,7 +373,7 @@ function assertMayChangeGrant(ctx: SessionContext, before: ProgramRole | null, a
 export async function createRole(ctx: SessionContext, input: RoleInput): Promise<{ id: string }> {
   const data = parseInput(roleInputSchema, input);
   if (!canManageVolunteerRole(ctx, data.programId)) throw forbidden();
-  if (data.programId) await loadProgram(data.programId);
+  if (data.programId) await loadProgram(ctx, data.programId);
   assertMayChangeGrant(ctx, null, data.grantsProgramRole);
   await validateCredentialIds(data.requiredCredentialIds, []);
 
@@ -418,6 +420,7 @@ export async function updateRole(ctx: SessionContext, id: string, input: RoleInp
     const [role] = await tx.select().from(volunteerRoles).where(eq(volunteerRoles.id, id)).for("update").limit(1);
     if (!role) throw new DalError("NOT_FOUND", "Role not found.");
     if (!canManageVolunteerRole(ctx, role.programId)) throw forbidden();
+    if (role.programId) await assertProgramReachable(ctx, role.programId, tx);
 
     if (data.programId !== role.programId) {
       throw new DalError("INVALID", "A role can't be moved to a different program. Archive it and create a new one.");
@@ -478,6 +481,7 @@ async function setRoleActive(ctx: SessionContext, id: string, isActive: boolean)
       .limit(1);
     if (!role) throw new DalError("NOT_FOUND", "Role not found.");
     if (!canManageVolunteerRole(ctx, role.programId)) throw forbidden();
+    if (role.programId) await assertProgramReachable(ctx, role.programId, tx);
     if (role.isActive === isActive) {
       throw new DalError("INVALID", isActive ? "This role is already active." : "This role is already archived.");
     }
@@ -617,6 +621,7 @@ export async function listAssignmentsForReview(
       missingCredentialCount: credentials.filter((c) => !c.ok).length,
       canManage,
       isSelf: r.userId === ctx.userId,
+      selfApprovalBlocked: isBlockedSelfGrant(ctx, r, r.userId),
     };
   });
 }
@@ -627,6 +632,15 @@ export async function listAssignmentsForReview(
 
 const SELF_GRANT_MESSAGE =
   "You can't approve or assign yourself to a role that grants permissions. Ask another manager to do it.";
+
+/** Program admins may not hand themselves a permission-granting role; the board may (their grants are audited). */
+function isBlockedSelfGrant(ctx: SessionContext, role: { grantsProgramRole: ProgramRole | null }, userId: string): boolean {
+  return !!role.grantsProgramRole && userId === ctx.userId && !isBoard(ctx);
+}
+
+function isSelfApproved(ctx: SessionContext, role: { grantsProgramRole: ProgramRole | null }, userId: string): boolean {
+  return !!role.grantsProgramRole && userId === ctx.userId && isBoard(ctx);
+}
 
 /** Credential types the volunteer is missing (verified + unexpired required). */
 async function missingCredentialNames(userId: string, requiredIds: string[], tx: DbOrTx): Promise<string[]> {
@@ -667,6 +681,7 @@ export async function approveAssignment(
     const [role] = await tx.select().from(volunteerRoles).where(eq(volunteerRoles.id, peek.roleId)).for("update").limit(1);
     if (!role) throw new DalError("NOT_FOUND", "Role not found.");
     if (!canManageVolunteerRole(ctx, role.programId)) throw forbidden();
+    if (role.programId) await assertProgramReachable(ctx, role.programId, tx);
 
     const [a] = await tx
       .select()
@@ -676,7 +691,7 @@ export async function approveAssignment(
       .limit(1);
     if (!a) throw new DalError("NOT_FOUND", "Sign-up not found.");
     if (a.status !== "pending") throw new DalError("INVALID", "This sign-up is no longer pending.");
-    if (role.grantsProgramRole && a.userId === ctx.userId) throw new DalError("FORBIDDEN", SELF_GRANT_MESSAGE);
+    if (isBlockedSelfGrant(ctx, role, a.userId)) throw new DalError("FORBIDDEN", SELF_GRANT_MESSAGE);
     if (!role.isActive) throw new DalError("INVALID", "This role is archived. Restore it before approving sign-ups.");
 
     const [user] = await tx
@@ -731,6 +746,7 @@ export async function approveAssignment(
           grantsProgramRole: role.grantsProgramRole,
           programRoleId,
           missingCredentials: missing,
+          ...(isSelfApproved(ctx, role, a.userId) ? { selfApproved: true } : {}),
         },
       },
       tx
@@ -753,6 +769,7 @@ export async function declineAssignment(ctx: SessionContext, id: string, reason:
     const [role] = await tx.select().from(volunteerRoles).where(eq(volunteerRoles.id, peek.roleId)).for("update").limit(1);
     if (!role) throw new DalError("NOT_FOUND", "Role not found.");
     if (!canManageVolunteerRole(ctx, role.programId)) throw forbidden();
+    if (role.programId) await assertProgramReachable(ctx, role.programId, tx);
 
     const [a] = await tx.select().from(volunteerRoleAssignments).where(eq(volunteerRoleAssignments.id, id)).for("update").limit(1);
     if (!a) throw new DalError("NOT_FOUND", "Sign-up not found.");
@@ -790,6 +807,7 @@ export async function endAssignment(ctx: SessionContext, id: string, reason: str
     const [role] = await tx.select().from(volunteerRoles).where(eq(volunteerRoles.id, peek.roleId)).for("update").limit(1);
     if (!role) throw new DalError("NOT_FOUND", "Role not found.");
     if (!canManageVolunteerRole(ctx, role.programId)) throw forbidden();
+    if (role.programId) await assertProgramReachable(ctx, role.programId, tx);
 
     const [a] = await tx.select().from(volunteerRoleAssignments).where(eq(volunteerRoleAssignments.id, id)).for("update").limit(1);
     if (!a) throw new DalError("NOT_FOUND", "Assignment not found.");
@@ -834,24 +852,15 @@ export async function assignVolunteer(
       const [role] = await tx.select().from(volunteerRoles).where(eq(volunteerRoles.id, data.roleId)).for("update").limit(1);
       if (!role) throw new DalError("NOT_FOUND", "Role not found.");
       if (!canManageVolunteerRole(ctx, role.programId)) throw forbidden();
+      if (role.programId) await assertProgramReachable(ctx, role.programId, tx);
       if (!role.isActive) throw new DalError("INVALID", "This role is archived. Restore it before assigning volunteers.");
-      if (role.programId) {
-        const [p] = await tx
-          .select({ isActive: programs.isActive })
-          .from(programs)
-          .where(and(eq(programs.id, role.programId), isNull(programs.deletedAt)))
-          .limit(1);
-        if (!p) throw new DalError("NOT_FOUND", "Program not found.");
-        if (!p.isActive) throw new DalError("INVALID", "This program is inactive.");
-      }
-
       const [user] = await tx
         .select({ id: users.id })
         .from(users)
         .where(and(sql`lower(${users.email}) = ${data.email}`, isNull(users.deletedAt)))
         .limit(1);
       if (!user) throw new DalError("INVALID", "Ask them to sign in once first.");
-      if (role.grantsProgramRole && user.id === ctx.userId) throw new DalError("FORBIDDEN", SELF_GRANT_MESSAGE);
+      if (isBlockedSelfGrant(ctx, role, user.id)) throw new DalError("FORBIDDEN", SELF_GRANT_MESSAGE);
 
       // Term must fit the role's period.
       let seasonId: string | null = null;
@@ -935,6 +944,7 @@ export async function assignVolunteer(
             grantsProgramRole: role.grantsProgramRole,
             programRoleId,
             missingCredentials: missing,
+            ...(isSelfApproved(ctx, role, user.id) ? { selfApproved: true } : {}),
           },
         },
         tx

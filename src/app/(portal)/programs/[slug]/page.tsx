@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { InactiveProgramBanner } from "@/components/programs/inactive-banner";
 import { SeasonStatusBadge } from "@/components/seasons/season-status-badge";
 import { Badge, Card, CardHeader, EmptyState, Table, TBody, TD, TH, THead, TR, buttonStyles } from "@/components/ui";
-import { DalError, requireSession } from "@/lib/dal/context";
+import { DalError, isBoard, requireSession } from "@/lib/dal/context";
 import { getProgramHub } from "@/lib/dal/seasons";
 import { getProgramRoleSummary } from "@/lib/dal/volunteer-roles";
 import { formatCents, formatDate, formatDateTime, formatDob } from "@/lib/format";
@@ -23,13 +24,15 @@ export default async function ProgramHubPage({ params }: { params: Promise<{ slu
   const { program, seasons, canManage } = hub;
   const roleSummary = await getProgramRoleSummary(ctx, program.id);
   const base = `/programs/${program.slug}`;
+  const board = isBoard(ctx);
 
   return (
     <div className="mx-auto w-full max-w-5xl space-y-6">
+      {!program.isActive ? <InactiveProgramBanner /> : null}
       <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
         <div className="min-w-0">
           <Link href="/programs" className="text-xs font-semibold text-stone-500 hover:text-charcoal">
-            My programs
+            {board ? "Program hubs" : "My programs"}
           </Link>
           <h1 className="mt-1 text-2xl font-bold tracking-tight text-charcoal">{program.name}</h1>
           <p className="mt-1 text-sm text-stone-500">
@@ -42,11 +45,18 @@ export default async function ProgramHubPage({ params }: { params: Promise<{ slu
             </Badge>
           ) : null}
         </div>
-        {canManage ? (
-          <Link href={`${base}/seasons/new`} className={buttonStyles({ size: "sm" })}>
-            New season
-          </Link>
-        ) : null}
+        <div className="flex flex-wrap gap-2">
+          {board ? (
+            <Link href={`/admin/programs/${program.id}`} data-testid="program-settings-link" className={buttonStyles({ size: "sm", variant: "secondary" })}>
+              Program settings
+            </Link>
+          ) : null}
+          {canManage ? (
+            <Link href={`${base}/seasons/new`} className={buttonStyles({ size: "sm" })}>
+              New season
+            </Link>
+          ) : null}
+        </div>
       </div>
 
       <Card>

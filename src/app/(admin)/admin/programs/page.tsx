@@ -25,7 +25,7 @@ export default async function ProgramsPage() {
       <Card>
         <CardHeader
           title="All programs"
-          description="Inactive programs are hidden from sign-up dropdowns but keep their history"
+          description="Manage opens the program hub: seasons, registrations, rosters, emergency sheets and volunteer roles. Inactive programs are hidden from sign-up dropdowns but keep their history"
           action={<NewProgramButton credentials={credentials} />}
         />
         <ProgramTable rows={rows} />

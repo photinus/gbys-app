@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Badge, Card, EmptyState } from "@/components/ui";
-import { requireSession } from "@/lib/dal/context";
+import { isBoard, requireSession } from "@/lib/dal/context";
 import { isProgramStaff } from "@/lib/dal/permissions";
 import { listMyStaffPrograms } from "@/lib/dal/seasons";
 
@@ -12,12 +12,15 @@ export default async function MyProgramsPage() {
   const ctx = await requireSession("/programs");
   if (!isProgramStaff(ctx)) notFound();
   const programs = await listMyStaffPrograms(ctx);
+  const board = isBoard(ctx);
 
   return (
     <div className="mx-auto w-full max-w-5xl space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-charcoal">My programs</h1>
-        <p className="mt-1 text-sm text-stone-500">Seasons, rosters and emergency sheets for the programs you run or coach.</p>
+        <h1 className="text-2xl font-bold tracking-tight text-charcoal">{board ? "Program hubs" : "My programs"}</h1>
+        <p className="mt-1 text-sm text-stone-500">
+          {board ? "Seasons, rosters, emergency sheets and volunteer roles for every program, including inactive ones." : "Seasons, rosters and emergency sheets for the programs you run or coach."}
+        </p>
       </div>
       {programs.length === 0 ? (
         <EmptyState title="No programs yet" description="Programs you coach or administer will appear here." />
@@ -31,7 +34,10 @@ export default async function MyProgramsPage() {
                     <h2 className="truncate text-lg font-bold text-charcoal">{p.name}</h2>
                     <p className="text-xs text-stone-500">{p.sport}</p>
                   </div>
-                  <Badge tone={p.canManage ? "info" : "neutral"}>{p.canManage ? "Manager" : "Staff"}</Badge>
+                  <div className="flex shrink-0 flex-wrap justify-end gap-1.5">
+                    {!p.isActive ? <Badge tone="warning">Inactive</Badge> : null}
+                    <Badge tone={p.canManage ? "info" : "neutral"}>{p.canManage ? "Manager" : "Staff"}</Badge>
+                  </div>
                 </div>
                 {p.description ? <p className="mt-3 line-clamp-2 text-sm text-stone-600">{p.description}</p> : null}
                 <dl className="mt-4 flex gap-6 text-sm">

@@ -16,7 +16,8 @@ export function ProgramTable({ rows }: { rows: ProgramListRow[] }) {
           <TH>Sport</TH>
           <TH>Type</TH>
           <TH>Roles</TH>
-          <TH className="pr-2 text-right">Status</TH>
+          <TH>Status</TH>
+          <TH className="pr-2 text-right">Hub</TH>
         </tr>
       </THead>
       <TBody>
@@ -37,8 +38,13 @@ export function ProgramTable({ rows }: { rows: ProgramListRow[] }) {
             <TD className="text-stone-600">
               {r.roleCount} total / {r.coachCount} coaches
             </TD>
-            <TD className="pr-2 text-right">
+            <TD>
               <Badge tone={r.isActive ? "success" : "neutral"}>{r.isActive ? "Active" : "Inactive"}</Badge>
+            </TD>
+            <TD className="pr-2 text-right">
+              <Link href={`/programs/${r.slug}`} data-testid="manage-program-link" className="text-xs font-semibold text-indigo-700 hover:underline">
+                Manage
+              </Link>
             </TD>
           </TR>
         ))}
