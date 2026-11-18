@@ -60,8 +60,14 @@ export function buildAnswersSchema(fields: CustomFormField[]) {
           : z.boolean().optional().default(false);
         break;
       case "number": {
-        const n = z.coerce.number({ message: `"${f.label}" must be a number.` }).finite();
-        s = f.required ? n : z.union([z.literal("").transform(() => undefined), n]).optional();
+        // Blank -> undefined (never coerced to 0), then a finite number.
+        const n = z.preprocess(
+          (v) => (v === "" || v === null || v === undefined ? undefined : typeof v === "string" ? Number(v) : v),
+          f.required
+            ? z.number({ message: `"${f.label}" must be a number.` }).finite()
+            : z.number({ message: `"${f.label}" must be a number.` }).finite().optional()
+        );
+        s = n;
         break;
       }
       case "select": {
