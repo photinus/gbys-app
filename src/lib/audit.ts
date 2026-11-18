@@ -34,7 +34,17 @@ export type AuditAction =
   | "hours.rejected"
   | "hours.deleted"
   | "grant.report_viewed"
-  | "grant.exported";
+  | "grant.exported"
+  | "season.created"
+  | "season.updated"
+  | "waiver.version_created"
+  | "waiver.signed"
+  | "registration.created"
+  | "registration.withdrawn"
+  | "registration.cancelled"
+  | "payment.recorded"
+  | "payment.voided"
+  | "roster.viewed";
 
 export type AuditTarget =
   | "athlete"
@@ -48,7 +58,11 @@ export type AuditTarget =
   | "volunteer_shift"
   | "shift_signup"
   | "volunteer_log"
-  | "grant_report";
+  | "grant_report"
+  | "season"
+  | "waiver_version"
+  | "signed_waiver"
+  | "registration";
 
 export async function writeAudit(
   e: {

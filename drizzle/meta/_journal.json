@@ -29,6 +29,20 @@
       "when": 1794978776290,
       "tag": "0003_backfill_blank_user_names",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1794980938186,
+      "tag": "0004_sprint3a_registration_waivers",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1794980938883,
+      "tag": "0005_sprint3a_drop_inline_waiver",
+      "breakpoints": true
     }
   ]
 }

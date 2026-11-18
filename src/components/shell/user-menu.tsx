@@ -4,6 +4,7 @@ import { LogOut } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { signOut } from "@/lib/auth-client";
+import { clearSensitiveCaches } from "@/lib/pwa";
 import { initials } from "@/lib/utils";
 import type { OrgRole } from "./nav";
 
@@ -20,6 +21,7 @@ export interface ShellUser {
   orgRole: OrgRole;
   /** Shows the "Manage shifts" entry for program admins / coaches / team managers. */
   isShiftCoordinator?: boolean;
+  isProgramStaff?: boolean;
 }
 
 export function UserMenu({ user }: { user: ShellUser }) {
@@ -47,6 +49,8 @@ export function UserMenu({ user }: { user: ShellUser }) {
   async function handleSignOut() {
     setBusy(true);
     try {
+      // Purge offline emergency sheets (medical data) before the session ends.
+      await clearSensitiveCaches();
       await signOut();
     } finally {
       router.push("/sign-in");

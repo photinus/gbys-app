@@ -1,4 +1,17 @@
-import { pgTable, text, timestamp, integer, boolean, jsonb, uuid, pgEnum, index } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+import {
+  pgTable,
+  text,
+  timestamp,
+  integer,
+  boolean,
+  jsonb,
+  uuid,
+  pgEnum,
+  index,
+  date,
+  check,
+} from "drizzle-orm/pg-core";
 import { users } from "./auth";
 
 export const programRoleEnum = pgEnum("program_role", [
@@ -37,24 +50,60 @@ export const programs = pgTable("programs", {
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
 });
 
-export const seasons = pgTable("seasons", {
-  id: uuid("id").defaultRandom().primaryKey(),
-  programId: uuid("program_id")
-    .notNull()
-    .references(() => programs.id),
-  name: text("name").notNull(),
-  registrationOpensAt: timestamp("registration_opens_at", { withTimezone: true }),
-  registrationClosesAt: timestamp("registration_closes_at", { withTimezone: true }),
-  baseFeeCents: integer("base_fee_cents").notNull().default(0),
-  waiverVersion: text("waiver_version").notNull().default("v1.0"),
-  waiverText: text("waiver_text").notNull().default(""),
-  customFormSchema: jsonb("custom_form_schema")
-    .$type<CustomFormField[]>()
-    .notNull()
-    .default([]),
-  isActive: boolean("is_active").notNull().default(true),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+/**
+ * Immutable waiver library (invariant 5). Rows are never updated or deleted:
+ * "editing" a waiver inserts a new version. `bodyHash` = sha256 hex of `body`
+ * (see src/lib/waiver.ts). Seasons point at one version; signatures record it.
+ */
+export const waiverVersions = pgTable(
+  "waiver_versions",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    programId: uuid("program_id").references(() => programs.id), // Null = GBYS org-wide waiver
+    title: text("title").notNull(),
+    version: text("version").notNull(), // e.g. "v2.4"
+    body: text("body").notNull(),
+    bodyHash: text("body_hash").notNull(),
+    createdByUserId: text("created_by_user_id").references(() => users.id),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("waiver_versions_program_idx").on(t.programId)]
+);
+
+export const seasons = pgTable(
+  "seasons",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    programId: uuid("program_id")
+      .notNull()
+      .references(() => programs.id),
+    name: text("name").notNull(),
+    description: text("description"),
+    startsOn: date("starts_on", { mode: "string" }), // display only (LA calendar dates)
+    endsOn: date("ends_on", { mode: "string" }),
+    registrationOpensAt: timestamp("registration_opens_at", { withTimezone: true }),
+    registrationClosesAt: timestamp("registration_closes_at", { withTimezone: true }),
+    // Eligibility by date of birth, inclusive (e.g. Cal Ripken league-age bands). Null = no bound.
+    eligibleBirthDateFrom: date("eligible_birth_date_from", { mode: "string" }),
+    eligibleBirthDateTo: date("eligible_birth_date_to", { mode: "string" }),
+    baseFeeCents: integer("base_fee_cents").notNull().default(0),
+    waiverVersionId: uuid("waiver_version_id").references(() => waiverVersions.id),
+    customFormSchema: jsonb("custom_form_schema")
+      .$type<CustomFormField[]>()
+      .notNull()
+      .default([]),
+    isActive: boolean("is_active").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (t) => [
+    index("seasons_program_idx").on(t.programId),
+    check("seasons_fee_chk", sql`${t.baseFeeCents} >= 0`),
+  ]
+);
 
 export const programRoles = pgTable(
   "program_roles",

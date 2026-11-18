@@ -8,7 +8,10 @@ export type { ShellUser };
 
 /** Authenticated app chrome: icon rail + pill tab bar + content area. Server component. */
 export function AppShell({ user, children }: { user: ShellUser; children: ReactNode }) {
-  const items = getNavItems(user.orgRole, { isShiftCoordinator: user.isShiftCoordinator });
+  const items = getNavItems(user.orgRole, {
+    isShiftCoordinator: user.isShiftCoordinator,
+    isProgramStaff: user.isProgramStaff,
+  });
 
   return (
     <div className="min-h-screen flex flex-col lg:flex-row">

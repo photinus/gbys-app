@@ -38,3 +38,30 @@ export function isShiftCoordinator(ctx: SessionContext): boolean {
   const ids = checkInProgramIds(ctx);
   return ids === "all" || ids.length > 0;
 }
+
+// ---- Sprint 3a: program staff ------------------------------------------------
+
+export const PROGRAM_STAFF_ROLES = ["program_admin", "head_coach", "assistant_coach", "team_manager"] as const;
+
+/** Create/edit seasons and waivers, record offline payments, cancel registrations. */
+export function canManageProgram(ctx: SessionContext, programId: string): boolean {
+  return isBoard(ctx) || hasProgramRole(ctx, programId, ["program_admin"]);
+}
+
+/** See the season roster and the (audited) team emergency sheet. */
+export function canViewRoster(ctx: SessionContext, programId: string): boolean {
+  return isBoard(ctx) || hasProgramRole(ctx, programId, [...PROGRAM_STAFF_ROLES]);
+}
+
+/** Programs where ctx holds a staff role ("all" for board). */
+export function staffProgramIds(ctx: SessionContext): "all" | string[] {
+  if (isBoard(ctx)) return "all";
+  const staff: readonly string[] = PROGRAM_STAFF_ROLES;
+  return [...new Set(ctx.programRoles.filter((g) => staff.includes(g.role)).map((g) => g.programId))];
+}
+
+/** Whether to show the "My programs" nav entry. */
+export function isProgramStaff(ctx: SessionContext): boolean {
+  const ids = staffProgramIds(ctx);
+  return ids === "all" || ids.length > 0;
+}
