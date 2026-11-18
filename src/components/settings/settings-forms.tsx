@@ -10,16 +10,6 @@ import { LOGO_MAX_BYTES } from "@/lib/validation/settings";
 
 const dollars = (cents: number | null) => (cents === null ? "" : (cents / 100).toFixed(2));
 
-/** Fields of the other card, posted as hidden inputs because one action validates the whole record. */
-function HiddenRate({ s }: { s: OrgSettingsView }) {
-  return (
-    <>
-      <input type="hidden" name="inKindRateDollars" value={dollars(s.inKindHourlyRateCents)} />
-      <input type="hidden" name="inKindRateSource" value={s.inKindRateSource ?? ""} />
-    </>
-  );
-}
-
 export function ProfileForm({ settings: s }: { settings: OrgSettingsView }) {
   const toast = useToast();
   const { state, pending, onSubmit } = useActionForm(updateSettingsAction);
@@ -29,7 +19,7 @@ export function ProfileForm({ settings: s }: { settings: OrgSettingsView }) {
 
   return (
     <form onSubmit={onSubmit} className="space-y-4 text-sm">
-      <HiddenRate s={s} />
+      <input type="hidden" name="section" value="profile" />
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Organization name">
           <Input name="orgName" required minLength={2} maxLength={80} defaultValue={s.orgName} />
@@ -69,12 +59,7 @@ export function RateForm({ settings: s }: { settings: OrgSettingsView }) {
 
   return (
     <form onSubmit={onSubmit} className="space-y-4 text-sm">
-      <input type="hidden" name="orgName" value={s.orgName} />
-      <input type="hidden" name="shortName" value={s.shortName} />
-      <input type="hidden" name="legalDesignation" value={s.legalDesignation} />
-      <input type="hidden" name="ein" value={s.ein ?? ""} />
-      <input type="hidden" name="supportEmail" value={s.supportEmail ?? ""} />
-      <input type="hidden" name="websiteUrl" value={s.websiteUrl ?? ""} />
+      <input type="hidden" name="section" value="valuation" />
       <div className="grid gap-4 sm:grid-cols-2">
         <Field
           label="Hourly rate (USD)"

@@ -5,9 +5,11 @@ credential vault and board compliance queue (Sprint 1); volunteer shifts with ki
 check-in, the grant-auditable hours ledger, grant exports, program roles and the
 daily compliance cron (Sprint 2); seasons with a custom form builder, public
 registration with versioned waiver e-signatures, offline (cash/check/scholarship)
-payments and an offline-capable coach emergency sheet (Sprint 3a). See `AGENT_HANDOFF.md` for the
+payments and an offline-capable coach emergency sheet (Sprint 3a); admin overview, user management,
+org settings and branding, credential types, an audit log viewer and a grouped,
+collapsible sidebar (Admin & Navigation). See `AGENT_HANDOFF.md` for the
 product spec and invariants, `ARCHITECTURE.md` for the layout, and `docs/SPRINT1_PLAN.md`
-`docs/SPRINT2_PLAN.md` and `docs/SPRINT3A_PLAN.md` for the sprint implementation plans. UI reference: `assets/ui-mockup.html`.
+`docs/SPRINT2_PLAN.md` `docs/SPRINT3A_PLAN.md` and `docs/ADMIN_NAV_PLAN.md` for the sprint implementation plans. UI reference: `assets/ui-mockup.html`.
 
 ## Local development
 
@@ -20,10 +22,10 @@ npm run dev
 ```
 
 In development, magic-link sign-in URLs are printed to the server console
-(`[DEV MAGIC LINK]`). Promote a user to the board to see `/admin/compliance`:
+(`[DEV MAGIC LINK]`). Promote your first super admin with SQL (after that, use `/admin/users`):
 
 ```sql
-update users set org_role = 'board_member' where email = 'you@example.org';
+update users set org_role = 'super_admin' where email = 'you@example.org';
 ```
 
 Checks: `npm run typecheck` and `npm run build`.

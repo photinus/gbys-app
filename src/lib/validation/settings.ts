@@ -26,7 +26,8 @@ export function parseRateDollars(raw: string): number | null | "invalid" {
   return cents;
 }
 
-export const updateSettingsSchema = z.object({
+const profileShape = {
+  section: z.literal("profile"),
   orgName: z.string().trim().min(2, "Organization name must be at least 2 characters.").max(80, "Organization name is too long (max 80 characters)."),
   shortName: z.string().trim().min(2, "Short name must be at least 2 characters.").max(12, "Short name is too long (max 12 characters)."),
   legalDesignation: z.string().trim().min(1, "Legal designation is required.").max(120, "Legal designation is too long (max 120 characters)."),
@@ -55,6 +56,10 @@ export const updateSettingsSchema = z.object({
         return false;
       }
     }, "Website must be a valid https:// URL."),
+};
+
+const valuationShape = {
+  section: z.literal("valuation"),
   /** Dollars as typed; blank = use the default (environment) rate. */
   inKindRateDollars: z
     .string()
@@ -72,5 +77,8 @@ export const updateSettingsSchema = z.object({
       return cents;
     }),
   inKindRateSource: optionalText(200, "Rate source"),
-});
+};
+
+/** Section-scoped: each card submits only its own fields so concurrent saves cannot overwrite each other. */
+export const updateSettingsSchema = z.discriminatedUnion("section", [z.object(profileShape), z.object(valuationShape)]);
 export type UpdateSettingsInput = z.input<typeof updateSettingsSchema>;

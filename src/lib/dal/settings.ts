@@ -187,31 +187,36 @@ export async function updateOrgSettings(
     const [old] = await tx.select().from(orgSettings).where(eq(orgSettings.id, 1)).for("update").limit(1);
 
     const changed: string[] = [];
-    for (const f of PROFILE_FIELDS) if ((old[f] ?? null) !== (data[f] ?? null)) changed.push(f);
-    const rateChanged = (old.inKindHourlyRateCents ?? null) !== data.inKindRateDollars;
-    if (rateChanged) changed.push("inKindHourlyRateCents");
-    if ((old.inKindRateSource ?? null) !== data.inKindRateSource) changed.push("inKindRateSource");
-    if (changed.length === 0) return { changed };
-
-    await tx
-      .update(orgSettings)
-      .set({
+    const set: Partial<typeof orgSettings.$inferInsert> = {};
+    const metadata: Record<string, unknown> = {};
+    if (data.section === "profile") {
+      for (const f of PROFILE_FIELDS) if ((old[f] ?? null) !== (data[f] ?? null)) changed.push(f);
+      if (changed.length === 0) return { changed };
+      Object.assign(set, {
         orgName: data.orgName,
         shortName: data.shortName,
         legalDesignation: data.legalDesignation,
         ein: data.ein,
         supportEmail: data.supportEmail,
         websiteUrl: data.websiteUrl,
-        inKindHourlyRateCents: data.inKindRateDollars,
-        inKindRateSource: data.inKindRateSource,
-        updatedByUserId: ctx.userId,
-      })
+      });
+    } else {
+      const rateChanged = (old.inKindHourlyRateCents ?? null) !== data.inKindRateDollars;
+      if (rateChanged) changed.push("inKindHourlyRateCents");
+      if ((old.inKindRateSource ?? null) !== data.inKindRateSource) changed.push("inKindRateSource");
+      if (changed.length === 0) return { changed };
+      Object.assign(set, { inKindHourlyRateCents: data.inKindRateDollars, inKindRateSource: data.inKindRateSource });
+      if (rateChanged) {
+        metadata.inKindHourlyRateCents = { from: old.inKindHourlyRateCents ?? null, to: data.inKindRateDollars };
+      }
+    }
+
+    await tx
+      .update(orgSettings)
+      .set({ ...set, updatedByUserId: ctx.userId })
       .where(eq(orgSettings.id, 1));
 
-    const metadata: Record<string, unknown> = { fields: changed };
-    if (rateChanged) {
-      metadata.inKindHourlyRateCents = { from: old.inKindHourlyRateCents ?? null, to: data.inKindRateDollars };
-    }
+    metadata.fields = changed;
     await writeAudit(
       { actorUserId: ctx.userId, action: "settings.updated", targetType: "org_settings", targetId: "1", metadata },
       tx

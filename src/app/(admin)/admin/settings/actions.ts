@@ -20,17 +20,26 @@ export async function updateSettingsAction(
   _prev: ActionResult<unknown> | null,
   formData: FormData
 ): Promise<ActionResult<{ changed: string[] }>> {
+  const section = str(formData, "section");
   const res = await runAction((ctx) =>
-    updateOrgSettings(ctx, {
-      orgName: str(formData, "orgName"),
-      shortName: str(formData, "shortName"),
-      legalDesignation: str(formData, "legalDesignation"),
-      ein: str(formData, "ein"),
-      supportEmail: str(formData, "supportEmail"),
-      websiteUrl: str(formData, "websiteUrl"),
-      inKindRateDollars: str(formData, "inKindRateDollars"),
-      inKindRateSource: str(formData, "inKindRateSource"),
-    })
+    updateOrgSettings(
+      ctx,
+      section === "valuation"
+        ? {
+            section: "valuation",
+            inKindRateDollars: str(formData, "inKindRateDollars"),
+            inKindRateSource: str(formData, "inKindRateSource"),
+          }
+        : {
+            section: "profile",
+            orgName: str(formData, "orgName"),
+            shortName: str(formData, "shortName"),
+            legalDesignation: str(formData, "legalDesignation"),
+            ein: str(formData, "ein"),
+            supportEmail: str(formData, "supportEmail"),
+            websiteUrl: str(formData, "websiteUrl"),
+          }
+    )
   );
   if (res.ok) revalidateBranding();
   return res;

@@ -115,7 +115,7 @@ export function AttentionCard({ a }: { a: AdminOverview["attention"] }) {
           ))}
         </Row>
         <Row
-          href="/admin/users"
+          href="/admin/users?bounced=1"
           icon={<MailX className="h-4 w-4" />}
           title="Users with bounced email"
           detail="Notifications to these addresses are failing"
