@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, integer, uuid, pgEnum, index } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, integer, uuid, pgEnum, index, boolean } from "drizzle-orm/pg-core";
 import { users } from "./auth";
 
 export const credentialStatusEnum = pgEnum("credential_status", [
@@ -14,6 +14,14 @@ export const credentialDefinitions = pgTable("credential_definitions", {
   name: text("name").notNull(),
   description: text("description"),
   defaultValidityMonths: integer("default_validity_months").notNull().default(24),
+  // Archived types stay attached to existing credentials but can't be newly submitted
+  // or required by programs. Definitions are never hard-deleted once referenced.
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow()
+    .$onUpdate(() => new Date()),
 });
 
 export const userCredentials = pgTable(

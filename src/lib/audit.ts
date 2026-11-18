@@ -44,7 +44,19 @@ export type AuditAction =
   | "registration.cancelled"
   | "payment.recorded"
   | "payment.voided"
-  | "roster.viewed";
+  | "roster.viewed"
+  | "user.role_changed"
+  | "user.profile_updated"
+  | "user.deactivated"
+  | "user.restored"
+  | "settings.updated"
+  | "branding.logo_updated"
+  | "branding.logo_removed"
+  | "credential_definition.created"
+  | "credential_definition.updated"
+  | "credential_definition.archived"
+  | "credential_definition.restored"
+  | "audit.viewed";
 
 export type AuditTarget =
   | "athlete"
@@ -62,7 +74,10 @@ export type AuditTarget =
   | "season"
   | "waiver_version"
   | "signed_waiver"
-  | "registration";
+  | "registration"
+  | "org_settings"
+  | "credential_definition"
+  | "audit_log";
 
 export async function writeAudit(
   e: {

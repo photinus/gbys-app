@@ -43,6 +43,13 @@
       "when": 1794980938883,
       "tag": "0005_sprint3a_drop_inline_waiver",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1795016417109,
+      "tag": "0006_admin_settings_credential_types",
+      "breakpoints": true
     }
   ]
 }

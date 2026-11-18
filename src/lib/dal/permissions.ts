@@ -65,3 +65,10 @@ export function isProgramStaff(ctx: SessionContext): boolean {
   const ids = staffProgramIds(ctx);
   return ids === "all" || ids.length > 0;
 }
+
+// ---- Admin & settings sprint ---------------------------------------------------
+
+/** Org role changes (granting/revoking board or super admin) are super-admin only. */
+export function isSuperAdmin(ctx: SessionContext): boolean {
+  return ctx.orgRole === "super_admin";
+}
