@@ -56,6 +56,18 @@ export const auth = betterAuth({
     },
   },
   databaseHooks: {
+    user: {
+      create: {
+        // Magic-link sign-ups arrive with an empty name. Default to the email's
+        // local part so rosters, review queues, grant exports and emails never
+        // show a blank; users can change it on their profile.
+        before: async (user) => {
+          if (user.name?.trim()) return;
+          const local = (user.email ?? "").split("@")[0]?.trim();
+          return { data: { ...user, name: local || "Volunteer" } };
+        },
+      },
+    },
     session: {
       create: {
         // Soft-deleted users can never start a session.

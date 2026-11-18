@@ -91,19 +91,19 @@ export default async function GrantPrintPage({
 
       <p className="text-xs text-stone-600">{rateStatement(report)}</p>
 
-      <section className="break-inside-avoid">
+      <section className="break-inside-avoid overflow-x-clip">
         <h2 className="mb-1 text-base font-bold">By category</h2>
         <CategoryTable report={report} />
       </section>
-      <section className="break-inside-avoid">
+      <section className="break-inside-avoid overflow-x-clip">
         <h2 className="mb-1 text-base font-bold">By program</h2>
         <ProgramTable report={report} />
       </section>
-      <section className="break-inside-avoid">
+      <section className="break-inside-avoid overflow-x-clip">
         <h2 className="mb-1 text-base font-bold">By month</h2>
         <MonthTable report={report} />
       </section>
-      <section>
+      <section className="overflow-x-clip">
         <h2 className="mb-1 text-base font-bold">By volunteer</h2>
         <VolunteerTable report={report} />
       </section>

@@ -1,9 +1,11 @@
 # Gold Beach Youth Sports (GBYS) App
 
 Volunteer-run youth sports management platform: households and athletes, volunteer
-credential vault and board compliance queue (Sprint 1). See `AGENT_HANDOFF.md` for the
+credential vault and board compliance queue (Sprint 1); volunteer shifts with kiosk
+check-in, the grant-auditable hours ledger, grant exports, program roles and the
+daily compliance cron (Sprint 2). See `AGENT_HANDOFF.md` for the
 product spec and invariants, `ARCHITECTURE.md` for the layout, and `docs/SPRINT1_PLAN.md`
-for the Sprint 1 implementation plan. UI reference: `assets/ui-mockup.html`.
+and `docs/SPRINT2_PLAN.md` for the sprint implementation plans. UI reference: `assets/ui-mockup.html`.
 
 ## Local development
 
@@ -32,3 +34,6 @@ Checks: `npm run typecheck` and `npm run build`.
   `S3_*`. Optional until configured: `GOOGLE_CLIENT_ID/SECRET` (Google button is hidden
   without it) and `NUNTLY_API_KEY` (emails are logged to the console without it).
 - The S3 bucket needs a CORS rule allowing `PUT` from the app origin (browser proof uploads).
+- `cron-compliance` POSTs to `http://$WEB_PRIVATE_DOMAIN:<web port>/api/cron/compliance` with
+  `Authorization: Bearer $CRON_SECRET` (same `CRON_SECRET` on both services). The port must
+  match the port `web` listens on (currently 8080).
