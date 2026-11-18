@@ -433,6 +433,14 @@ export async function updateSeason(ctx: SessionContext, seasonId: string, input:
           throw new DalError("INVALID", `The type of "${old.label}" can't change after registrations exist.`);
         }
       }
+      for (const [key, next] of newByKey) {
+        if (next.required && !oldByKey.get(key)?.required) {
+          throw new DalError(
+            "INVALID",
+            `"${next.label}" can't be required after registrations exist. Make it optional so existing registrations stay valid.`
+          );
+        }
+      }
       if (values.baseFeeCents !== before.baseFeeCents) {
         throw new DalError("INVALID", "The fee can't change after registrations exist, because each registration snapshots the fee.");
       }
