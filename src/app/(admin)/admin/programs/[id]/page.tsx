@@ -22,7 +22,7 @@ export default async function ProgramDetailPage({ params }: { params: Promise<{ 
     if (err instanceof DalError && err.code === "NOT_FOUND") notFound();
     throw err;
   }
-  const [credentials, roles] = await Promise.all([listCredentialOptions(ctx), listProgramRoles(ctx, id)]);
+  const [credentials, roles] = await Promise.all([listCredentialOptions(ctx, id), listProgramRoles(ctx, id)]);
 
   return (
     <div className="space-y-6">

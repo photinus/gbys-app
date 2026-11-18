@@ -10,7 +10,7 @@ import {
   volunteerShifts,
 } from "@/db/schema";
 import { writeAudit } from "@/lib/audit";
-import { currentInKindRateCents } from "@/lib/grant-rate";
+import { getInKindRateCents } from "./settings";
 import {
   shiftSchema,
   undoReasonSchema,
@@ -674,6 +674,7 @@ async function performCheckIn(
     throw new DalError("INVALID", "This shift's length cannot be logged.");
   }
 
+  const inKindRate = await getInKindRateCents();
   const [log] = await tx
     .insert(volunteerLogs)
     .values({
@@ -688,7 +689,7 @@ async function performCheckIn(
       createdByUserId: ctx.userId,
       approvedByUserId: ctx.userId,
       approvedAt: now,
-      inKindRateCents: currentInKindRateCents(),
+      inKindRateCents: inKindRate,
     })
     .returning({ id: volunteerLogs.id });
   await tx

@@ -1,78 +1,81 @@
 "use client";
 
-import {
-  CalendarCheck,
-  CalendarDays,
-  ClipboardCheck,
-  ClipboardList,
-  Trophy,
-  Clock,
-  FileSpreadsheet,
-  FolderKanban,
-  LayoutGrid,
-  ListChecks,
-  ShieldCheck,
-  Users,
-  type LucideIcon,
-} from "lucide-react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { Logo } from "./logo";
-import { isActivePath, type NavIconKey, type NavItem } from "./nav";
+import { SIDEBAR_COOKIE, type NavGroup } from "./nav";
+import { NavList } from "./nav-list";
 
-const ICONS: Record<NavIconKey, LucideIcon> = {
-  dashboard: LayoutGrid,
-  household: Users,
-  credentials: ShieldCheck,
-  registrations: ClipboardList,
-  programHub: Trophy,
-  shifts: CalendarDays,
-  hours: Clock,
-  checkin: CalendarCheck,
-  compliance: ClipboardCheck,
-  hoursReview: ListChecks,
-  grants: FileSpreadsheet,
-  programs: FolderKanban,
-};
+/**
+ * Desktop (lg+) collapsible sidebar. `initialCollapsed` comes from the gbys_sidebar cookie,
+ * read server-side by AppShell, so the first paint already has the right width.
+ */
+export function Sidebar({
+  groups,
+  orgName,
+  logoUrl,
+  initialCollapsed,
+}: {
+  groups: NavGroup[];
+  orgName: string;
+  logoUrl: string | null;
+  initialCollapsed: boolean;
+}) {
+  const [collapsed, setCollapsed] = useState(initialCollapsed);
 
-/** Slim icon rail on lg+, compact brand bar on small screens (PillTabs handle mobile nav). */
-export function Sidebar({ items }: { items: NavItem[] }) {
-  const pathname = usePathname();
+  function toggle() {
+    const next = !collapsed;
+    setCollapsed(next);
+    try {
+      document.cookie = `${SIDEBAR_COOKIE}=${next ? "collapsed" : "expanded"}; path=/; max-age=31536000; samesite=lax`;
+    } catch {
+      // cookies blocked: state still works for this page view
+    }
+  }
 
   return (
-    <aside className="print:hidden w-full lg:w-20 bg-rail border-b lg:border-b-0 lg:border-r border-line flex lg:flex-col items-center justify-between px-4 py-3 lg:py-6 shrink-0 sticky top-0 z-30 lg:h-screen lg:self-start">
-      <div className="flex items-center gap-3 lg:flex-col">
-        <Logo href="/dashboard" />
-        <span className="font-bold text-sm tracking-tight lg:hidden">Gold Beach Youth Sports</span>
+    <aside
+      data-collapsed={collapsed ? "true" : "false"}
+      className={cn(
+        "print:hidden hidden lg:flex flex-col shrink-0 sticky top-0 h-screen z-30 overflow-hidden bg-rail border-r border-line",
+        "transition-[width] duration-200 ease-out motion-reduce:transition-none",
+        collapsed ? "w-20" : "w-[248px]",
+      )}
+    >
+      <div className={cn("flex items-center gap-3 pt-6 pb-4", collapsed ? "justify-center px-4" : "px-5")}>
+        <Logo href="/dashboard" logoUrl={logoUrl} name={orgName} />
+        {collapsed ? null : (
+          <span className="min-w-0 text-sm font-bold leading-tight tracking-tight line-clamp-2">{orgName}</span>
+        )}
       </div>
 
-      <nav aria-label="Primary" className="hidden lg:flex flex-col items-center gap-3 my-auto">
-        {items.map((item) => {
-          const Icon = ICONS[item.icon];
-          const active = isActivePath(pathname, item.href, items.map((i) => i.href));
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              title={item.label}
-              aria-label={item.label}
-              aria-current={active ? "page" : undefined}
-              className={cn(
-                "w-11 h-11 rounded-full flex items-center justify-center transition-all",
-                active
-                  ? "bg-periwinkle/35 text-charcoal"
-                  : "text-stone-500 hover:bg-stone-200/70 hover:text-charcoal",
-              )}
-            >
-              <Icon className="w-5 h-5" strokeWidth={active ? 2 : 1.9} />
-            </Link>
-          );
-        })}
-      </nav>
+      <div className={cn("flex-1 overflow-y-auto overflow-x-hidden pb-4 pt-2", collapsed ? "px-4" : "px-3")}>
+        <NavList groups={groups} collapsed={collapsed} />
+      </div>
 
-      {/* Spacer keeps the nav vertically centered, like the mockup's bottom utility group */}
-      <div className="hidden lg:block w-11 h-11" aria-hidden />
+      <div className={cn("border-t border-line py-3", collapsed ? "flex justify-center px-4" : "px-3")}>
+        <button
+          type="button"
+          onClick={toggle}
+          aria-expanded={!collapsed}
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          className={cn(
+            "flex h-11 items-center rounded-full text-sm font-medium text-stone-500 transition-colors hover:bg-stone-200/70 hover:text-charcoal focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-periwinkle/80",
+            collapsed ? "w-11 justify-center" : "w-full gap-3 px-3.5 whitespace-nowrap",
+          )}
+        >
+          {collapsed ? (
+            <PanelLeftOpen className="h-5 w-5" aria-hidden />
+          ) : (
+            <>
+              <PanelLeftClose className="h-5 w-5 shrink-0" aria-hidden />
+              <span>Collapse</span>
+            </>
+          )}
+        </button>
+      </div>
     </aside>
   );
 }
