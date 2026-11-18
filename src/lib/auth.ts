@@ -1,11 +1,17 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import { nextCookies } from "better-auth/next-js";
 import { magicLink } from "better-auth/plugins";
+import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import * as schema from "@/db/schema";
 import { sendMagicLinkEmail } from "./email";
 
+const baseURL = process.env.BETTER_AUTH_URL || undefined;
+
 export const auth = betterAuth({
+  baseURL,
+  trustedOrigins: baseURL ? [baseURL] : [],
   database: drizzleAdapter(db, {
     provider: "pg",
     schema: {
@@ -34,20 +40,39 @@ export const auth = betterAuth({
       },
     },
   },
-  socialProviders: {
-    google: {
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-    },
-  },
+  // Register Google only when configured so the app boots without OAuth creds.
+  socialProviders: process.env.GOOGLE_CLIENT_ID
+    ? {
+        google: {
+          clientId: process.env.GOOGLE_CLIENT_ID,
+          clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
+        },
+      }
+    : {},
   account: {
     accountLinking: {
       enabled: true,
       trustedProviders: ["google"],
     },
   },
+  databaseHooks: {
+    session: {
+      create: {
+        // Soft-deleted users can never start a session.
+        before: async (session) => {
+          const [user] = await db
+            .select({ deletedAt: schema.users.deletedAt })
+            .from(schema.users)
+            .where(eq(schema.users.id, session.userId))
+            .limit(1);
+          if (user?.deletedAt) return false;
+        },
+      },
+    },
+  },
   plugins: [
     magicLink({
+      expiresIn: 600,
       sendMagicLink: async ({ email, url }) => {
         if (process.env.NODE_ENV === "development") {
           console.log(`[DEV MAGIC LINK] ${email}: ${url}`);
@@ -56,5 +81,6 @@ export const auth = betterAuth({
         await sendMagicLinkEmail({ to: email, url });
       },
     }),
+    nextCookies(), // must be the LAST plugin
   ],
 });
