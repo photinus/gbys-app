@@ -1,0 +1,1129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gold Beach Youth Sports — Admin Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'Inter', 'sans-serif'],
+          },
+          colors: {
+            alabaster: '#F4F3EF',
+            shell: '#FAF9F6',
+            charcoal: '#1C1C1E',
+            periwinkle: '#95A9F9',
+            sage: '#8CE09B',
+            coral: '#F79A93',
+            amberSoft: '#F6B982',
+            lavenderCard: '#ECEBFA',
+            peachCard: '#F6EAE1',
+            mintCard: '#E6F2EA',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body {
+      background-color: #F4F3EF;
+      color: #1C1C1E;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+    }
+    /* Custom subtle scrollbars */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #DCDAD3;
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #C4C1B8;
+    }
+  </style>
+</head>
+<body class="antialiased selection:bg-periwinkle/30">
+
+  <!-- Toast Notification Banner -->
+  <div id="toast" class="fixed bottom-5 right-5 z-50 hidden transform transition-all duration-300 translate-y-4 opacity-0">
+    <div class="flex items-center gap-3 bg-charcoal text-white px-5 py-3.5 rounded-2xl shadow-xl border border-white/10">
+      <div class="w-6 h-6 rounded-full bg-sage/20 text-sage flex items-center justify-center shrink-0">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+      </div>
+      <div>
+        <p id="toast-title" class="text-sm font-semibold">Action Completed</p>
+        <p id="toast-desc" class="text-xs text-stone-300">Updated records in Railway PostgreSQL.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main App Shell -->
+  <div class="min-h-screen flex flex-col lg:flex-row">
+
+    <!-- Left Slim Vertical Icon Sidebar -->
+    <aside class="w-full lg:w-20 bg-[#F7F6F2] border-b lg:border-b-0 lg:border-r border-[#E6E4DD] flex lg:flex-col items-center justify-between px-4 py-3 lg:py-6 shrink-0 sticky top-0 z-30">
+      <!-- GBYS Custom Geometric Emblem -->
+      <div class="flex items-center gap-3 lg:flex-col">
+        <button onclick="switchTopTab('dashboard')" title="Gold Beach Youth Sports" class="w-11 h-11 rounded-2xl bg-charcoal text-white flex items-center justify-center shadow-sm hover:scale-105 transition-transform">
+          <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none">
+            <path d="M5 7C5 5.89543 5.89543 5 7 5H17C18.1046 5 19 5.89543 19 7V11.5C19 15.6421 15.6421 19 11.5 19H7C5.89543 19 5 18.1046 5 17V7Z" stroke="currentColor" stroke-width="2.2"/>
+            <path d="M9 12H14M12 9V15" stroke="#95A9F9" stroke-width="2.2" stroke-linecap="round"/>
+          </svg>
+        </button>
+        <span class="font-bold text-sm tracking-tight lg:hidden">Gold Beach Youth Sports</span>
+      </div>
+
+      <!-- Primary Sidebar Nav Icons -->
+      <nav class="hidden lg:flex flex-col items-center gap-3 my-auto">
+        <button onclick="switchTopTab('dashboard')" data-side="dashboard" class="side-btn w-11 h-11 rounded-full bg-periwinkle/35 text-charcoal flex items-center justify-center transition-all" title="Dashboard Overview">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path d="M17.5 14v7M14 17.5h7" stroke-linecap="round"/></svg>
+        </button>
+        <button onclick="switchTopTab('volunteers')" data-side="volunteers" class="side-btn w-11 h-11 rounded-full text-stone-500 hover:bg-stone-200/70 hover:text-charcoal flex items-center justify-center transition-all" title="Volunteers & First Advantage Vault">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+        </button>
+        <button onclick="switchTopTab('athletes')" data-side="athletes" class="side-btn w-11 h-11 rounded-full text-stone-500 hover:bg-stone-200/70 hover:text-charcoal flex items-center justify-center transition-all" title="Athlete Roster & Households">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+        </button>
+        <button onclick="switchTopTab('programs')" data-side="programs" class="side-btn w-11 h-11 rounded-full text-stone-500 hover:bg-stone-200/70 hover:text-charcoal flex items-center justify-center transition-all" title="Programs & Stripe Connect">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"/></svg>
+        </button>
+        <button onclick="triggerGrantExport()" class="side-btn w-11 h-11 rounded-full text-stone-500 hover:bg-stone-200/70 hover:text-charcoal flex items-center justify-center transition-all" title="Grant Time Ledger Export">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+        </button>
+      </nav>
+
+      <!-- Bottom Utility Icons -->
+      <div class="hidden lg:flex flex-col items-center gap-3">
+        <button onclick="showToast('Audit Log & Settings', 'All medical & credential views are logged with actor IDs.')" class="w-10 h-10 rounded-full text-stone-500 hover:bg-stone-200/70 hover:text-charcoal flex items-center justify-center transition-colors" title="Org Settings & Audit Log">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+        <button onclick="showToast('Offline PWA Cache Ready', 'Emergency athlete contacts & rosters cached locally for gym dead-zones.')" class="w-10 h-10 rounded-full text-stone-500 hover:bg-stone-200/70 hover:text-charcoal flex items-center justify-center transition-colors" title="Offline Sync Status">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Workspace Area -->
+    <div class="flex-1 flex flex-col min-w-0 max-w-[1600px] mx-auto w-full px-4 sm:px-8 py-5 sm:py-6">
+
+      <!-- Top Navigation Bar -->
+      <header class="flex flex-wrap items-center justify-between gap-4 pb-6">
+        <!-- Pill Navigation Tabs -->
+        <nav class="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-1 sm:pb-0">
+          <button onclick="switchTopTab('dashboard')" data-tab="dashboard" class="top-tab px-5 py-2.5 rounded-full text-sm font-semibold bg-charcoal text-white shadow-sm transition-all whitespace-nowrap">
+            Dashboard
+          </button>
+          <button onclick="switchTopTab('volunteers')" data-tab="volunteers" class="top-tab px-4 py-2.5 rounded-full text-sm font-medium text-stone-600 hover:text-charcoal hover:bg-white/70 transition-all whitespace-nowrap">
+            Volunteers
+          </button>
+          <button onclick="switchTopTab('athletes')" data-tab="athletes" class="top-tab px-4 py-2.5 rounded-full text-sm font-medium text-stone-600 hover:text-charcoal hover:bg-white/70 transition-all whitespace-nowrap">
+            Athletes
+          </button>
+          <button onclick="switchTopTab('programs')" data-tab="programs" class="top-tab px-4 py-2.5 rounded-full text-sm font-medium text-stone-600 hover:text-charcoal hover:bg-white/70 transition-all whitespace-nowrap">
+            Programs
+          </button>
+          <button onclick="triggerGrantExport()" class="px-4 py-2.5 rounded-full text-sm font-medium text-stone-600 hover:text-charcoal hover:bg-white/70 transition-all whitespace-nowrap">
+            Grants
+          </button>
+        </nav>
+
+        <!-- Right Search, Notification & Profile -->
+        <div class="flex items-center gap-2.5 ml-auto">
+          <div class="relative hidden sm:block">
+            <svg class="w-4 h-4 text-stone-400 absolute left-3.5 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35" stroke-linecap="round"/></svg>
+            <input
+              id="global-search"
+              type="text"
+              placeholder="Search volunteers, athletes, IDs..."
+              oninput="handleGlobalSearch(this.value)"
+              class="pl-9 pr-4 py-2 bg-white border border-[#E6E4DD] rounded-full text-sm text-charcoal placeholder:text-stone-400 focus:outline-none focus:ring-2 focus:ring-periwinkle/50 w-56 lg:w-64 transition-all"
+            />
+          </div>
+
+          <button onclick="showToast('4 Compliance Alerts', '4 coaches have First Advantage screenings due within 30 days.')" class="relative w-10 h-10 rounded-full bg-white border border-[#E6E4DD] flex items-center justify-center text-stone-600 hover:text-charcoal hover:shadow-sm transition-all" title="Notifications">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.9" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+            <span class="w-2 h-2 rounded-full bg-coral absolute top-2.5 right-2.5 ring-2 ring-white"></span>
+          </button>
+
+          <div class="flex items-center gap-2.5 pl-1">
+            <img
+              src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80"
+              onerror="this.src='https://placehold.co/80x80/1C1C1E/FFFFFF?text=WM'"
+              alt="Will McCloskey"
+              class="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm"
+            />
+          </div>
+        </div>
+      </header>
+
+      <!-- Greeting & Action Toolbar -->
+      <section class="flex flex-col md:flex-row md:items-end justify-between gap-4 pb-6">
+        <div>
+          <h1 class="text-2xl sm:text-3xl font-bold tracking-tight text-charcoal">Welcome Back, Will</h1>
+          <p class="text-sm text-stone-500 mt-1 flex flex-wrap items-center gap-2">
+            <span>Admin Dashboard</span>
+            <span class="text-stone-300">•</span>
+            <span class="font-medium text-stone-700">Gold Beach Youth Sports (501c3)</span>
+            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-100/80 text-emerald-800">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Offline Cache Active
+            </span>
+          </p>
+        </div>
+
+        <!-- Primary Actions & Program Filter -->
+        <div class="flex flex-wrap items-center gap-2.5">
+          <button onclick="openModal('register-modal')" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-charcoal text-white text-sm font-semibold hover:bg-stone-800 shadow-sm transition-all">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+            Register Athlete
+          </button>
+
+          <button onclick="openModal('hours-modal')" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-white border border-[#E6E4DD] text-charcoal text-sm font-semibold hover:bg-stone-50 shadow-sm transition-all">
+            <svg class="w-4 h-4 text-periwinkle" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            Log Volunteer Hours
+          </button>
+
+          <div class="hidden sm:inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-white border border-[#E6E4DD] text-sm font-medium text-stone-700">
+            <svg class="w-4 h-4 text-stone-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+            Nov 17, 2026
+          </div>
+
+          <div class="relative">
+            <select id="program-filter" onchange="filterByProgram(this.value)" class="appearance-none pl-4 pr-9 py-2.5 rounded-full bg-white border border-[#E6E4DD] text-sm font-medium text-charcoal focus:outline-none focus:ring-2 focus:ring-periwinkle/50 cursor-pointer">
+              <option value="all">All Programs</option>
+              <option value="Cal Ripken Baseball">Cal Ripken Baseball</option>
+              <option value="GB Youth Wrestling">GB Youth Wrestling</option>
+              <option value="Winter Clinics">Winter Clinics</option>
+              <option value="Board & Org Ops">Board & Org Ops</option>
+            </select>
+            <svg class="w-4 h-4 text-stone-500 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+          </div>
+        </div>
+      </section>
+
+      <!-- 4 KPI Metric Cards Row -->
+      <section class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 pb-6">
+        <!-- KPI 1: Active Volunteers -->
+        <div class="bg-white rounded-[24px] p-5 border border-[#E6E4DD]/80 shadow-[0_2px_10px_rgba(0,0,0,0.02)] hover:shadow-md transition-shadow">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-full bg-periwinkle/30 text-indigo-700 flex items-center justify-center shrink-0">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+            </div>
+            <span class="text-sm font-medium text-stone-600">Active Volunteers</span>
+          </div>
+          <div class="mt-4 flex items-baseline gap-2.5">
+            <span id="kpi-volunteers" class="text-3xl font-bold tracking-tight text-charcoal">184</span>
+            <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-sage/35 text-emerald-800">+12%</span>
+          </div>
+          <p class="text-xs text-stone-400 mt-1.5">Verified & active this season</p>
+        </div>
+
+        <!-- KPI 2: Registered Athletes -->
+        <div class="bg-white rounded-[24px] p-5 border border-[#E6E4DD]/80 shadow-[0_2px_10px_rgba(0,0,0,0.02)] hover:shadow-md transition-shadow">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-full bg-sage/35 text-emerald-800 flex items-center justify-center shrink-0">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            </div>
+            <span class="text-sm font-medium text-stone-600">Registered Athletes</span>
+          </div>
+          <div class="mt-4 flex items-baseline gap-2.5">
+            <span id="kpi-athletes" class="text-3xl font-bold tracking-tight text-charcoal">420</span>
+            <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-sage/35 text-emerald-800">+8.4%</span>
+          </div>
+          <p class="text-xs text-stone-400 mt-1.5">Across 3 active seasons</p>
+        </div>
+
+        <!-- KPI 3: Volunteer Hours (YTD) & Grant Value -->
+        <div class="bg-white rounded-[24px] p-5 border border-[#E6E4DD]/80 shadow-[0_2px_10px_rgba(0,0,0,0.02)] hover:shadow-md transition-shadow">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-full bg-coral/30 text-rose-700 flex items-center justify-center shrink-0">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path stroke-linecap="round" d="M12 7v5l3 2"/></svg>
+            </div>
+            <span class="text-sm font-medium text-stone-600">Volunteer Hours (YTD)</span>
+          </div>
+          <div class="mt-4 flex items-baseline gap-2.5 flex-wrap">
+            <span id="kpi-hours" class="text-3xl font-bold tracking-tight text-charcoal">1,285 hrs</span>
+            <span id="kpi-grant-val" class="px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">$43,035 value</span>
+          </div>
+          <p class="text-xs text-stone-400 mt-1.5">Auditable grant ledger ($33.49/hr rate)</p>
+        </div>
+
+        <!-- KPI 4: Partner Leagues -->
+        <div class="bg-white rounded-[24px] p-5 border border-[#E6E4DD]/80 shadow-[0_2px_10px_rgba(0,0,0,0.02)] hover:shadow-md transition-shadow">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-full bg-amberSoft/35 text-amber-800 flex items-center justify-center shrink-0">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9"/></svg>
+            </div>
+            <span class="text-sm font-medium text-stone-600">Partner Leagues</span>
+          </div>
+          <div class="mt-4 flex items-baseline gap-2.5">
+            <span class="text-3xl font-bold tracking-tight text-charcoal">5</span>
+            <span class="px-2 py-0.5 rounded-full text-xs font-medium bg-stone-100 text-stone-600">Stripe Connect</span>
+          </div>
+          <p class="text-xs text-stone-400 mt-1.5">Cal Ripken, Wrestling, Soccer, Clinics</p>
+        </div>
+      </section>
+
+      <!-- Main Asymmetric 2-Column Content Grid (68% Left / 32% Right) -->
+      <main class="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
+
+        <!-- LEFT WIDE COLUMN (8 of 12 cols ~ 67%) -->
+        <div class="xl:col-span-8 flex flex-col gap-6">
+
+          <!-- 1. Volunteer Compliance & Active Roster Card -->
+          <div id="volunteer-section" class="bg-white rounded-[26px] p-5 sm:p-6 border border-[#E6E4DD]/80 shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-5">
+              <div>
+                <h2 class="text-lg font-bold text-charcoal">Volunteer Compliance & Active Roster</h2>
+                <p class="text-xs text-stone-500 mt-0.5">First Advantage partner clearances, SafeSport certs & YTD grant hours</p>
+              </div>
+
+              <!-- Status Filter Pills -->
+              <div class="flex flex-wrap items-center gap-1.5 bg-alabaster p-1 rounded-full border border-[#E6E4DD]/70">
+                <button onclick="setComplianceFilter('all')" data-cfilter="all" class="cfilter-btn px-3 py-1.5 rounded-full text-xs font-semibold bg-charcoal text-white transition-all">All</button>
+                <button onclick="setComplianceFilter('Cleared')" data-cfilter="Cleared" class="cfilter-btn px-3 py-1.5 rounded-full text-xs font-medium text-stone-600 hover:text-charcoal transition-all">Cleared</button>
+                <button onclick="setComplianceFilter('Pending Review')" data-cfilter="Pending Review" class="cfilter-btn px-3 py-1.5 rounded-full text-xs font-medium text-stone-600 hover:text-charcoal transition-all">Pending</button>
+                <button onclick="setComplianceFilter('Expiring Soon')" data-cfilter="Expiring Soon" class="cfilter-btn px-3 py-1.5 rounded-full text-xs font-medium text-stone-600 hover:text-charcoal transition-all">Expiring</button>
+                <button onclick="setComplianceFilter('Required')" data-cfilter="Required" class="cfilter-btn px-3 py-1.5 rounded-full text-xs font-medium text-stone-600 hover:text-charcoal transition-all">Required</button>
+              </div>
+            </div>
+
+            <!-- Responsive Table -->
+            <div class="overflow-x-auto -mx-5 sm:-mx-6 px-5 sm:px-6">
+              <table class="w-full text-left border-collapse min-w-[680px]">
+                <thead>
+                  <tr class="border-b border-[#ECEAE3] text-[12px] font-semibold text-stone-400 uppercase tracking-wider">
+                    <th class="pb-3.5 pl-2">Volunteer</th>
+                    <th class="pb-3.5">Program & Role</th>
+                    <th class="pb-3.5">Credentials</th>
+                    <th class="pb-3.5">YTD Hours</th>
+                    <th class="pb-3.5">Valid Through</th>
+                    <th class="pb-3.5 text-right pr-2">Compliance</th>
+                  </tr>
+                </thead>
+                <tbody id="volunteer-table-body" class="divide-y divide-[#F1EFE9] text-sm">
+                  <!-- Populated via JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- 2. Active Athlete Roster & Emergency Quick-View Card -->
+          <div id="athlete-section" class="bg-white rounded-[26px] p-5 sm:p-6 border border-[#E6E4DD]/80 shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-5">
+              <div>
+                <h2 class="text-lg font-bold text-charcoal">Active Athlete Roster & Emergency Quick-View</h2>
+                <p class="text-xs text-stone-500 mt-0.5">Multi-guardian households, versioned e-waivers & Stripe Connect settlement</p>
+              </div>
+              <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-alabaster text-stone-600 border border-[#E6E4DD]">
+                <svg class="w-3.5 h-3.5 text-rose-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+                Medical Alerts Audited
+              </span>
+            </div>
+
+            <div class="overflow-x-auto -mx-5 sm:-mx-6 px-5 sm:px-6">
+              <table class="w-full text-left border-collapse min-w-[680px]">
+                <thead>
+                  <tr class="border-b border-[#ECEAE3] text-[12px] font-semibold text-stone-400 uppercase tracking-wider">
+                    <th class="pb-3.5 pl-2">Athlete</th>
+                    <th class="pb-3.5">Program / Division</th>
+                    <th class="pb-3.5">Primary Guardian</th>
+                    <th class="pb-3.5">Waiver</th>
+                    <th class="pb-3.5">Settlement</th>
+                    <th class="pb-3.5 text-right pr-2">Emergency</th>
+                  </tr>
+                </thead>
+                <tbody id="athlete-table-body" class="divide-y divide-[#F1EFE9] text-sm">
+                  <!-- Populated via JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- RIGHT NARROW COLUMN (4 of 12 cols ~ 33%) -->
+        <aside class="xl:col-span-4 flex flex-col gap-6">
+
+          <!-- Upcoming Programs & Grant Operations Card -->
+          <div class="bg-white rounded-[26px] p-5 sm:p-6 border border-[#E6E4DD]/80 shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
+            <div class="flex items-center justify-between pb-4">
+              <h2 class="text-lg font-bold text-charcoal">Upcoming Programs & Grants</h2>
+              <button onclick="switchTopTab('programs')" class="w-9 h-9 rounded-full bg-alabaster hover:bg-stone-200/70 flex items-center justify-center text-charcoal transition-colors" title="View All Programs">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 17L17 7M17 7H8M17 7v9"/></svg>
+              </button>
+            </div>
+
+            <div class="flex flex-col gap-3.5">
+
+              <!-- Pastel Block 1: Lavender (Cal Ripken Registration) -->
+              <div class="bg-lavenderCard rounded-[20px] p-4 border border-indigo-200/40 transition-transform hover:-translate-y-0.5">
+                <div class="flex items-start justify-between gap-2">
+                  <h3 class="font-bold text-[15px] text-charcoal">Cal Ripken Baseball Registration</h3>
+                  <span class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-white/80 text-indigo-900 shrink-0">Stripe Active</span>
+                </div>
+                <p class="text-xs text-stone-600 mt-1.5 leading-relaxed">
+                  Spring 2027 intake open for T-Ball, Minors & Majors. Direct payouts routed to partner Stripe account.
+                </p>
+                <div class="mt-3.5 flex flex-wrap items-center gap-2">
+                  <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white text-[11px] font-semibold text-stone-700 shadow-2xs">
+                    <svg class="w-3.5 h-3.5 text-indigo-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+                    Nov 17 – Dec 28, 2026
+                  </span>
+                </div>
+              </div>
+
+              <!-- Pastel Block 2: Warm Peach/Sand (First Advantage Renewal Window) -->
+              <div class="bg-peachCard rounded-[20px] p-4 border border-orange-200/40 transition-transform hover:-translate-y-0.5">
+                <div class="flex items-start justify-between gap-2">
+                  <h3 class="font-bold text-[15px] text-charcoal">First Advantage Renewal Window</h3>
+                </div>
+                <p class="text-xs text-stone-600 mt-1.5 leading-relaxed">
+                  4 coaches are due for their 24-month Cal Ripken partner background check renewal before winter practices.
+                </p>
+                <div class="mt-3.5 flex items-center justify-between gap-2">
+                  <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white text-[11px] font-semibold text-amber-900 shadow-2xs">
+                    <svg class="w-3.5 h-3.5 text-amber-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path stroke-linecap="round" d="M12 8v4l2.5 2.5"/></svg>
+                    4 Renewals Pending
+                  </span>
+                  <button onclick="setComplianceFilter('Expiring Soon')" class="text-xs font-bold text-charcoal underline underline-offset-2 hover:text-amber-900">
+                    Review List →
+                  </button>
+                </div>
+              </div>
+
+              <!-- Pastel Block 3: Soft Mint/Sage (Ford Family & OCF Grant Export) -->
+              <div class="bg-mintCard rounded-[20px] p-4 border border-emerald-200/50 transition-transform hover:-translate-y-0.5">
+                <div class="flex items-start justify-between gap-2">
+                  <h3 class="font-bold text-[15px] text-charcoal">Ford Family & OCF Grant Export</h3>
+                </div>
+                <p class="text-xs text-stone-600 mt-1.5 leading-relaxed">
+                  Q4 volunteer hours (<span id="card-hours-text" class="font-semibold text-charcoal">1,285 hrs</span>) & <span id="card-value-text" class="font-semibold text-charcoal">$43,035</span> in-kind match valuation verified and ready for export.
+                </p>
+                <div class="mt-3.5 flex items-center justify-between gap-2">
+                  <button onclick="triggerGrantExport()" class="w-full inline-flex items-center justify-center gap-2 px-4 py-2 rounded-full bg-charcoal text-white text-xs font-semibold hover:bg-stone-800 shadow-sm transition-all">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                    Export Grant CSV
+                  </button>
+                </div>
+              </div>
+
+            </div>
+          </div>
+
+          <!-- Facility Conflict & Resource Quick Status Card -->
+          <div class="bg-white rounded-[26px] p-5 sm:p-6 border border-[#E6E4DD]/80 shadow-[0_2px_12px_rgba(0,0,0,0.02)]">
+            <div class="flex items-center justify-between pb-3.5">
+              <div>
+                <h2 class="text-base font-bold text-charcoal">Facility Resource Tree</h2>
+                <p class="text-xs text-stone-500">Parent-child conflict lock active</p>
+              </div>
+              <span class="px-2.5 py-1 rounded-full text-[11px] font-semibold bg-sage/30 text-emerald-900">0 Conflicts</span>
+            </div>
+            <div class="space-y-2.5 text-xs">
+              <div class="p-3 rounded-2xl bg-alabaster flex items-center justify-between">
+                <div>
+                  <p class="font-semibold text-charcoal">Gold Beach High School Gym</p>
+                  <p class="text-stone-500 mt-0.5">Mat 1 (Wrestling) • Mat 2 (Clinic)</p>
+                </div>
+                <span class="px-2 py-0.5 rounded-full bg-white text-stone-700 font-medium border border-[#E6E4DD]">5:30 PM</span>
+              </div>
+              <div class="p-3 rounded-2xl bg-alabaster flex items-center justify-between">
+                <div>
+                  <p class="font-semibold text-charcoal">Riley Creek Sports Complex</p>
+                  <p class="text-stone-500 mt-0.5">Field A & Batting Cages</p>
+                </div>
+                <span class="px-2 py-0.5 rounded-full bg-white text-stone-700 font-medium border border-[#E6E4DD]">Open</span>
+              </div>
+            </div>
+          </div>
+
+        </aside>
+
+      </main>
+    </div>
+  </div>
+
+  <!-- ========================================================= -->
+  <!-- SLIDE-OVER DETAIL DRAWER (Volunteer Credential & Hours)   -->
+  <!-- ========================================================= -->
+  <div id="detail-drawer-backdrop" onclick="closeDrawer()" class="fixed inset-0 bg-charcoal/30 backdrop-blur-[2px] z-40 hidden transition-opacity"></div>
+  <aside id="detail-drawer" class="fixed top-0 right-0 h-full w-full max-w-md bg-white z-50 shadow-2xl border-l border-[#E6E4DD] transform translate-x-full transition-transform duration-300 flex flex-col">
+    <div class="p-6 border-b border-[#ECEAE3] flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <img id="drawer-avatar" src="" alt="" class="w-12 h-12 rounded-full object-cover border border-[#E6E4DD]" />
+        <div>
+          <h3 id="drawer-name" class="text-lg font-bold text-charcoal">Volunteer Name</h3>
+          <p id="drawer-role" class="text-xs text-stone-500">Program • Role</p>
+        </div>
+      </div>
+      <button onclick="closeDrawer()" class="w-9 h-9 rounded-full bg-alabaster hover:bg-stone-200 flex items-center justify-center text-stone-600">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+
+    <div class="p-6 flex-1 overflow-y-auto space-y-6">
+      <!-- Status & Reference Metadata -->
+      <div class="bg-alabaster rounded-2xl p-4 border border-[#E6E4DD]/80 space-y-3">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-medium text-stone-500">Compliance Status</span>
+          <span id="drawer-status-badge" class="px-3 py-1 rounded-full text-xs font-semibold">Cleared</span>
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-medium text-stone-500">First Advantage Ref ID</span>
+          <span id="drawer-ref-id" class="text-xs font-mono font-semibold text-charcoal">FA-CR-88419</span>
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-medium text-stone-500">Issuer Partner</span>
+          <span id="drawer-issuer" class="text-xs font-semibold text-charcoal">Cal Ripken / First Advantage</span>
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-medium text-stone-500">Expiration Date</span>
+          <span id="drawer-expires" class="text-xs font-semibold text-charcoal">Oct 12, 2028</span>
+        </div>
+      </div>
+
+      <!-- Credential Checklist -->
+      <div>
+        <h4 class="text-xs font-bold uppercase tracking-wider text-stone-400 mb-3">Credential Vault Records</h4>
+        <div id="drawer-creds-list" class="space-y-2.5">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+
+      <!-- Grant Hours Summary -->
+      <div class="bg-mintCard/70 rounded-2xl p-4 border border-emerald-200/60">
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-xs font-medium text-emerald-900">YTD Grant-Auditable Hours</p>
+            <p id="drawer-hours" class="text-2xl font-bold text-charcoal mt-0.5">64.5 hrs</p>
+          </div>
+          <div class="text-right">
+            <p class="text-xs text-emerald-800">In-Kind Valuation</p>
+            <p id="drawer-valuation" class="text-sm font-bold text-emerald-900 mt-0.5">$2,160.11</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="p-5 border-t border-[#ECEAE3] bg-alabaster/50 flex items-center gap-3">
+      <button id="drawer-verify-btn" onclick="verifyCurrentVolunteer()" class="flex-1 py-2.5 px-4 rounded-full bg-charcoal text-white text-sm font-semibold hover:bg-stone-800 transition-all">
+        Verify & Approve Clearance
+      </button>
+      <button onclick="closeDrawer(); openModal('hours-modal')" class="py-2.5 px-4 rounded-full bg-white border border-[#E6E4DD] text-charcoal text-sm font-semibold hover:bg-stone-50 transition-all">
+        + Log Hours
+      </button>
+    </div>
+  </aside>
+
+  <!-- ========================================================= -->
+  <!-- MODAL 1: REGISTER ATHLETE (Dynamic Program Schema + Waiver)-->
+  <!-- ========================================================= -->
+  <div id="register-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-charcoal/40 backdrop-blur-[2px]">
+    <div class="bg-white rounded-[28px] max-w-lg w-full p-6 sm:p-7 border border-[#E6E4DD] shadow-2xl max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between pb-4 border-b border-[#ECEAE3]">
+        <div>
+          <h3 class="text-lg font-bold text-charcoal">Register Athlete</h3>
+          <p class="text-xs text-stone-500">Dynamic program intake • Versioned waiver & Stripe Connect</p>
+        </div>
+        <button onclick="closeModal('register-modal')" class="w-8 h-8 rounded-full bg-alabaster flex items-center justify-center text-stone-500 hover:text-charcoal">✕</button>
+      </div>
+
+      <form onsubmit="submitAthleteRegistration(event)" class="mt-4 space-y-4 text-sm">
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-stone-600 mb-1">Athlete First Name</label>
+            <input id="reg-first" type="text" required placeholder="e.g., Liam" class="w-full px-3.5 py-2 rounded-xl bg-alabaster border border-[#E6E4DD] focus:outline-none focus:ring-2 focus:ring-periwinkle" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-stone-600 mb-1">Athlete Last Name</label>
+            <input id="reg-last" type="text" required placeholder="e.g., Vance" class="w-full px-3.5 py-2 rounded-xl bg-alabaster border border-[#E6E4DD] focus:outline-none focus:ring-2 focus:ring-periwinkle" />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-stone-600 mb-1">Program / Season</label>
+            <select id="reg-program" onchange="updateDynamicFormFields(this.value)" class="w-full px-3.5 py-2 rounded-xl bg-alabaster border border-[#E6E4DD] focus:outline-none focus:ring-2 focus:ring-periwinkle">
+              <option value="Cal Ripken Baseball">Cal Ripken Baseball (Spring '27)</option>
+              <option value="GB Youth Wrestling">GB Youth Wrestling (Winter '26)</option>
+              <option value="Winter Clinics">Winter Skills Clinic</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-stone-600 mb-1">Primary Guardian</label>
+            <input id="reg-guardian" type="text" required placeholder="e.g., Sarah Vance" class="w-full px-3.5 py-2 rounded-xl bg-alabaster border border-[#E6E4DD] focus:outline-none focus:ring-2 focus:ring-periwinkle" />
+          </div>
+        </div>
+
+        <!-- Program-Specific JSONB Dynamic Fields -->
+        <div id="dynamic-fields-box" class="p-3.5 rounded-2xl bg-lavenderCard/60 border border-indigo-200/50 space-y-3">
+          <p class="text-[11px] font-bold uppercase tracking-wider text-indigo-900">Program-Specific Fields (JSONB Schema)</p>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label id="dyn-label-1" class="block text-xs font-semibold text-stone-700 mb-1">Jersey Size</label>
+              <select id="dyn-val-1" class="w-full px-3 py-1.5 rounded-xl bg-white border border-[#E6E4DD] text-xs">
+                <option>Youth Medium (YM)</option>
+                <option>Youth Large (YL)</option>
+                <option>Adult Small (AS)</option>
+              </select>
+            </div>
+            <div>
+              <label id="dyn-label-2" class="block text-xs font-semibold text-stone-700 mb-1">League Age / Division</label>
+              <input id="dyn-val-2" type="text" value="Minors (9-10U)" class="w-full px-3 py-1.5 rounded-xl bg-white border border-[#E6E4DD] text-xs" />
+            </div>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-stone-600 mb-1">Medical / Allergy Note</label>
+            <input id="reg-medical" type="text" placeholder="None or e.g., Inhaler" class="w-full px-3.5 py-2 rounded-xl bg-alabaster border border-[#E6E4DD]" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-stone-600 mb-1">Settlement Method</label>
+            <select id="reg-payment" class="w-full px-3.5 py-2 rounded-xl bg-alabaster border border-[#E6E4DD]">
+              <option value="Paid • Stripe">Paid • Stripe Connect ($65)</option>
+              <option value="Scholarship">GBYS Scholarship Waived</option>
+              <option value="Check #1042">Offline Check / Cash</option>
+            </select>
+          </div>
+        </div>
+
+        <label class="flex items-start gap-2.5 p-3 rounded-xl bg-alabaster border border-[#E6E4DD] cursor-pointer">
+          <input type="checkbox" required checked class="mt-0.5 rounded accent-charcoal" />
+          <span class="text-xs text-stone-600">
+            Guardian e-signature recorded for <strong class="text-charcoal">GBYS Liability & Concussion Waiver v2.4</strong> (timestamped & IP-logged).
+          </span>
+        </label>
+
+        <div class="flex items-center justify-end gap-2.5 pt-2">
+          <button type="button" onclick="closeModal('register-modal')" class="px-4 py-2 rounded-full text-xs font-semibold text-stone-600 hover:bg-alabaster">Cancel</button>
+          <button type="submit" class="px-5 py-2.5 rounded-full bg-charcoal text-white text-xs font-semibold hover:bg-stone-800">Complete Registration</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================================= -->
+  <!-- MODAL 2: LOG VOLUNTEER HOURS (Grant Ledger Entry)         -->
+  <!-- ========================================================= -->
+  <div id="hours-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-charcoal/40 backdrop-blur-[2px]">
+    <div class="bg-white rounded-[28px] max-w-md w-full p-6 sm:p-7 border border-[#E6E4DD] shadow-2xl">
+      <div class="flex items-center justify-between pb-4 border-b border-[#ECEAE3]">
+        <div>
+          <h3 class="text-lg font-bold text-charcoal">Log Volunteer Hours</h3>
+          <p class="text-xs text-stone-500">Auditable time entry • Auto-calculates $33.49/hr grant match</p>
+        </div>
+        <button onclick="closeModal('hours-modal')" class="w-8 h-8 rounded-full bg-alabaster flex items-center justify-center text-stone-500 hover:text-charcoal">✕</button>
+      </div>
+
+      <form onsubmit="submitVolunteerHours(event)" class="mt-4 space-y-4 text-sm">
+        <div>
+          <label class="block text-xs font-semibold text-stone-600 mb-1">Volunteer</label>
+          <select id="log-volunteer" class="w-full px-3.5 py-2 rounded-xl bg-alabaster border border-[#E6E4DD]">
+            <!-- Populated dynamically -->
+          </select>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-stone-600 mb-1">Activity Category</label>
+            <select id="log-category" class="w-full px-3.5 py-2 rounded-xl bg-alabaster border border-[#E6E4DD]">
+              <option value="Coaching">Coaching</option>
+              <option value="Event Ops">Event Setup / Ops</option>
+              <option value="Admin / Board">Admin / Board</option>
+              <option value="Facility Maintenance">Facility Maintenance</option>
+              <option value="Concessions">Concessions</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-stone-600 mb-1">Hours Logged</label>
+            <input id="log-hours" type="number" step="0.5" min="0.5" max="24" value="3.5" required class="w-full px-3.5 py-2 rounded-xl bg-alabaster border border-[#E6E4DD]" />
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-stone-600 mb-1">Grant Activity Note</label>
+          <input id="log-note" type="text" required placeholder="e.g., Mat setup & weigh-in table for weekend clinic" class="w-full px-3.5 py-2 rounded-xl bg-alabaster border border-[#E6E4DD]" />
+        </div>
+
+        <div class="flex items-center justify-end gap-2.5 pt-2">
+          <button type="button" onclick="closeModal('hours-modal')" class="px-4 py-2 rounded-full text-xs font-semibold text-stone-600 hover:bg-alabaster">Cancel</button>
+          <button type="submit" class="px-5 py-2.5 rounded-full bg-charcoal text-white text-xs font-semibold hover:bg-stone-800">Record Grant Hours</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================================= -->
+  <!-- APPLICATION DATA & INTERACTIVE LOGIC                      -->
+  <!-- ========================================================= -->
+  <script>
+    const IN_KIND_RATE = 33.49;
+    let totalHours = 1285;
+    let totalAthletes = 420;
+    let currentComplianceFilter = 'all';
+    let currentProgramFilter = 'all';
+    let currentSearchQuery = '';
+    let selectedVolunteerId = null;
+
+    // Seeded Volunteers (Gold Beach Youth Sports)
+    const volunteers = [
+      {
+        id: 'v1',
+        name: 'Sarah Miller',
+        email: 'sarah.miller@gbys.org',
+        avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=100&q=80',
+        program: 'Cal Ripken Baseball',
+        role: 'Head Coach',
+        credentials: ['First Advantage BG', 'SafeSport', 'Concussion'],
+        hours: 84.5,
+        validThrough: 'Oct 12, 2028',
+        status: 'Cleared',
+        refId: 'FA-CR-90412',
+        issuer: 'Cal Ripken / First Advantage'
+      },
+      {
+        id: 'v2',
+        name: 'Dave Davis',
+        email: 'dave.davis@coastmail.net',
+        avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=100&q=80',
+        program: 'GB Youth Wrestling',
+        role: 'Head Coach',
+        credentials: ['First Advantage BG', 'USA Wrestling Card'],
+        hours: 112.0,
+        validThrough: 'Pending Admin',
+        status: 'Pending Review',
+        refId: 'FA-GB-77310',
+        issuer: 'USA Wrestling / First Advantage'
+      },
+      {
+        id: 'v3',
+        name: 'Jenny Carter',
+        email: 'jcarter.curry@gmail.com',
+        avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=100&q=80',
+        program: 'Winter Clinics',
+        role: 'Clinic Coordinator',
+        credentials: ['First Advantage BG', 'Concussion'],
+        hours: 58.0,
+        validThrough: 'Dec 08, 2026',
+        status: 'Expiring Soon',
+        refId: 'FA-CR-44109',
+        issuer: 'Cal Ripken / First Advantage'
+      },
+      {
+        id: 'v4',
+        name: 'Marcus Thorne',
+        email: 'mthorne@goldbeach.org',
+        avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=100&q=80',
+        program: 'Board & Org Ops',
+        role: 'Board Treasurer',
+        credentials: ['First Advantage BG', 'SafeSport'],
+        hours: 146.5,
+        validThrough: 'Aug 19, 2028',
+        status: 'Cleared',
+        refId: 'FA-GB-10294',
+        issuer: 'GBYS Internal / First Advantage'
+      },
+      {
+        id: 'v5',
+        name: 'Elena Rostova',
+        email: 'elena.r@oregoncoast.com',
+        avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=100&q=80',
+        program: 'Cal Ripken Baseball',
+        role: 'Assistant Coach',
+        credentials: ['Awaiting First Advantage'],
+        hours: 14.0,
+        validThrough: 'Action Needed',
+        status: 'Required',
+        refId: 'INVITE-SENT',
+        issuer: 'Cal Ripken Portal'
+      }
+    ];
+
+    // Seeded Athletes
+    const athletes = [
+      {
+        id: 'a1',
+        name: 'Mason Miller',
+        ageGrade: '10U • 4th Grade',
+        program: 'Cal Ripken Baseball',
+        division: 'Minors',
+        guardian: 'Sarah Miller (Mom)',
+        phone: '(541) 247-0192',
+        waiver: 'Signed v2.4',
+        payment: 'Paid • Stripe',
+        medical: 'No Alerts'
+      },
+      {
+        id: 'a2',
+        name: 'Caleb Davis',
+        ageGrade: '12U • 6th Grade',
+        program: 'GB Youth Wrestling',
+        division: 'Middle School',
+        guardian: 'Dave Davis (Dad)',
+        phone: '(541) 247-8831',
+        waiver: 'Signed v2.4',
+        payment: 'Paid • Stripe',
+        medical: 'Albuterol Inhaler'
+      },
+      {
+        id: 'a3',
+        name: 'Maya Lin-Carter',
+        ageGrade: '8U • 2nd Grade',
+        program: 'Winter Clinics',
+        division: 'Fundamentals',
+        guardian: 'Jenny Carter (Mom)',
+        phone: '(541) 698-3310',
+        waiver: 'Signed v2.4',
+        payment: 'Scholarship',
+        medical: 'Peanut Allergy (EpiPen)'
+      },
+      {
+        id: 'a4',
+        name: 'Owen Henderson',
+        ageGrade: '10U • 4th Grade',
+        program: 'Cal Ripken Baseball',
+        division: 'Minors',
+        guardian: 'Mark Henderson (Dad)',
+        phone: '(541) 373-4429',
+        waiver: 'Signed v2.4',
+        payment: 'Check #418',
+        medical: 'No Alerts'
+      }
+    ];
+
+    function getStatusBadgeHTML(status) {
+      switch (status) {
+        case 'Cleared':
+          return `<span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-sage/40 text-emerald-900">Cleared</span>`;
+        case 'Pending Review':
+          return `<span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-periwinkle/35 text-indigo-950">Pending Review</span>`;
+        case 'Expiring Soon':
+          return `<span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-amberSoft/45 text-amber-950">Expiring Soon</span>`;
+        case 'Required':
+          return `<span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-coral/40 text-rose-950">Required</span>`;
+        default:
+          return `<span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-stone-100 text-stone-700">${status}</span>`;
+      }
+    }
+
+    function renderVolunteers() {
+      const tbody = document.getElementById('volunteer-table-body');
+      const filtered = volunteers.filter(v => {
+        const matchesStatus = currentComplianceFilter === 'all' || v.status === currentComplianceFilter;
+        const matchesProgram = currentProgramFilter === 'all' || v.program === currentProgramFilter;
+        const q = currentSearchQuery.toLowerCase();
+        const matchesSearch = !q ||
+          v.name.toLowerCase().includes(q) ||
+          v.program.toLowerCase().includes(q) ||
+          v.role.toLowerCase().includes(q) ||
+          v.refId.toLowerCase().includes(q);
+        return matchesStatus && matchesProgram && matchesSearch;
+      });
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" class="py-8 text-center text-sm text-stone-400">No volunteers match the selected filters.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = filtered.map(v => `
+        <tr onclick="openVolunteerDrawer('${v.id}')" class="group hover:bg-alabaster/80 cursor-pointer transition-colors">
+          <td class="py-3.5 pl-2">
+            <div class="flex items-center gap-3">
+              <img src="${v.avatar}" onerror="this.src='https://placehold.co/80x80/E6E4DD/1C1C1E?text=${v.name[0]}'" alt="${v.name}" class="w-9 h-9 rounded-full object-cover border border-[#E6E4DD]" />
+              <div>
+                <p class="font-semibold text-charcoal group-hover:underline">${v.name}</p>
+                <p class="text-xs text-stone-400">${v.email}</p>
+              </div>
+            </div>
+          </td>
+          <td class="py-3.5">
+            <p class="font-medium text-charcoal text-xs sm:text-sm">${v.program}</p>
+            <p class="text-xs text-stone-400">${v.role}</p>
+          </td>
+          <td class="py-3.5">
+            <div class="flex flex-wrap gap-1 max-w-[190px]">
+              ${v.credentials.map(c => `<span class="px-2 py-0.5 rounded-md bg-alabaster border border-[#E6E4DD] text-[11px] font-medium text-stone-700">${c}</span>`).join('')}
+            </div>
+          </td>
+          <td class="py-3.5 font-semibold text-charcoal">${v.hours.toFixed(1)} hrs</td>
+          <td class="py-3.5 text-xs text-stone-500 font-medium">${v.validThrough}</td>
+          <td class="py-3.5 text-right pr-2">${getStatusBadgeHTML(v.status)}</td>
+        </tr>
+      `).join('');
+    }
+
+    function renderAthletes() {
+      const tbody = document.getElementById('athlete-table-body');
+      const filtered = athletes.filter(a => {
+        const matchesProgram = currentProgramFilter === 'all' || a.program === currentProgramFilter;
+        const q = currentSearchQuery.toLowerCase();
+        const matchesSearch = !q ||
+          a.name.toLowerCase().includes(q) ||
+          a.guardian.toLowerCase().includes(q) ||
+          a.program.toLowerCase().includes(q);
+        return matchesProgram && matchesSearch;
+      });
+
+      tbody.innerHTML = filtered.map(a => {
+        const hasMedical = a.medical !== 'No Alerts';
+        const payBadge = a.payment.includes('Stripe')
+          ? 'bg-emerald-50 text-emerald-800 border-emerald-200/70'
+          : a.payment === 'Scholarship'
+          ? 'bg-indigo-50 text-indigo-800 border-indigo-200/70'
+          : 'bg-stone-100 text-stone-700 border-stone-200';
+
+        return `
+          <tr class="hover:bg-alabaster/70 transition-colors">
+            <td class="py-3.5 pl-2">
+              <p class="font-semibold text-charcoal">${a.name}</p>
+              <p class="text-xs text-stone-400">${a.ageGrade}</p>
+            </td>
+            <td class="py-3.5">
+              <p class="font-medium text-charcoal text-xs sm:text-sm">${a.program}</p>
+              <p class="text-xs text-stone-400">${a.division}</p>
+            </td>
+            <td class="py-3.5">
+              <p class="text-xs font-medium text-charcoal">${a.guardian}</p>
+              <p class="text-xs text-stone-400">${a.phone}</p>
+            </td>
+            <td class="py-3.5">
+              <span class="inline-flex items-center gap-1 text-xs font-medium text-emerald-700">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                ${a.waiver}
+              </span>
+            </td>
+            <td class="py-3.5">
+              <span class="px-2.5 py-1 rounded-full text-[11px] font-semibold border ${payBadge}">${a.payment}</span>
+            </td>
+            <td class="py-3.5 text-right pr-2">
+              <button onclick="showToast('Audit Log Recorded', 'Viewed emergency contact & medical note for ${a.name}.')" class="px-2.5 py-1 rounded-full text-[11px] font-semibold ${hasMedical ? 'bg-coral/35 text-rose-950' : 'bg-alabaster text-stone-500'}">
+                ${a.medical}
+              </button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function setComplianceFilter(status) {
+      currentComplianceFilter = status;
+      document.querySelectorAll('.cfilter-btn').forEach(btn => {
+        if (btn.dataset.cfilter === status) {
+          btn.className = 'cfilter-btn px-3 py-1.5 rounded-full text-xs font-semibold bg-charcoal text-white transition-all';
+        } else {
+          btn.className = 'cfilter-btn px-3 py-1.5 rounded-full text-xs font-medium text-stone-600 hover:text-charcoal transition-all';
+        }
+      });
+      renderVolunteers();
+    }
+
+    function filterByProgram(program) {
+      currentProgramFilter = program;
+      renderVolunteers();
+      renderAthletes();
+    }
+
+    function handleGlobalSearch(query) {
+      currentSearchQuery = query;
+      renderVolunteers();
+      renderAthletes();
+    }
+
+    function switchTopTab(tab) {
+      document.querySelectorAll('.top-tab').forEach(btn => {
+        if (btn.dataset.tab === tab) {
+          btn.className = 'top-tab px-5 py-2.5 rounded-full text-sm font-semibold bg-charcoal text-white shadow-sm transition-all whitespace-nowrap';
+        } else {
+          btn.className = 'top-tab px-4 py-2.5 rounded-full text-sm font-medium text-stone-600 hover:text-charcoal hover:bg-white/70 transition-all whitespace-nowrap';
+        }
+      });
+
+      if (tab === 'volunteers') {
+        document.getElementById('volunteer-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } else if (tab === 'athletes') {
+        document.getElementById('athlete-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } else if (tab === 'programs') {
+        showToast('Partner Programs & Stripe Connect', '5 active programs configured with isolated Stripe payout routing.');
+      }
+    }
+
+    // Drawer Logic
+    function openVolunteerDrawer(id) {
+      const v = volunteers.find(item => item.id === id);
+      if (!v) return;
+      selectedVolunteerId = id;
+
+      document.getElementById('drawer-avatar').src = v.avatar;
+      document.getElementById('drawer-name').textContent = v.name;
+      document.getElementById('drawer-role').textContent = `${v.program} • ${v.role}`;
+      document.getElementById('drawer-status-badge').outerHTML = `<span id="drawer-status-badge">${getStatusBadgeHTML(v.status)}</span>`;
+      document.getElementById('drawer-ref-id').textContent = v.refId;
+      document.getElementById('drawer-issuer').textContent = v.issuer;
+      document.getElementById('drawer-expires').textContent = v.validThrough;
+      document.getElementById('drawer-hours').textContent = `${v.hours.toFixed(1)} hrs`;
+      document.getElementById('drawer-valuation').textContent = `$${(v.hours * IN_KIND_RATE).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+      const credsContainer = document.getElementById('drawer-creds-list');
+      credsContainer.innerHTML = v.credentials.map(c => `
+        <div class="p-3 rounded-xl bg-white border border-[#E6E4DD] flex items-center justify-between">
+          <div>
+            <p class="text-xs font-semibold text-charcoal">${c}</p>
+            <p class="text-[11px] text-stone-400">Proof stored in Railway S3 Vault</p>
+          </div>
+          <span class="text-xs font-semibold text-indigo-600">View Receipt</span>
+        </div>
+      `).join('');
+
+      document.getElementById('detail-drawer-backdrop').classList.remove('hidden');
+      document.getElementById('detail-drawer').classList.remove('translate-x-full');
+    }
+
+    function closeDrawer() {
+      document.getElementById('detail-drawer-backdrop').classList.add('hidden');
+      document.getElementById('detail-drawer').classList.add('translate-x-full');
+    }
+
+    function verifyCurrentVolunteer() {
+      const v = volunteers.find(item => item.id === selectedVolunteerId);
+      if (!v) return;
+      v.status = 'Cleared';
+      v.validThrough = 'Nov 17, 2028';
+      if (v.credentials[0] === 'Awaiting First Advantage') {
+        v.credentials = ['First Advantage BG', 'SafeSport'];
+        v.refId = 'FA-GB-' + Math.floor(10000 + Math.random() * 90000);
+      }
+      renderVolunteers();
+      openVolunteerDrawer(v.id);
+      showToast('Clearance Verified', `${v.name} is now marked Cleared through Nov 17, 2028.`);
+    }
+
+    // Modals Logic
+    function openModal(id) {
+      const el = document.getElementById(id);
+      el.classList.remove('hidden');
+      el.classList.add('flex');
+      if (id === 'hours-modal') {
+        const select = document.getElementById('log-volunteer');
+        select.innerHTML = volunteers.map(v => `<option value="${v.id}">${v.name} (${v.program})</option>`).join('');
+      }
+    }
+
+    function closeModal(id) {
+      const el = document.getElementById(id);
+      el.classList.add('hidden');
+      el.classList.remove('flex');
+    }
+
+    function updateDynamicFormFields(program) {
+      const l1 = document.getElementById('dyn-label-1');
+      const l2 = document.getElementById('dyn-label-2');
+      const v2 = document.getElementById('dyn-val-2');
+      if (program === 'GB Youth Wrestling') {
+        l1.textContent = 'Singlet Size';
+        l2.textContent = 'USA Wrestling Card #';
+        v2.value = '26049182-OR';
+      } else if (program === 'Winter Clinics') {
+        l1.textContent = 'Clinic T-Shirt Size';
+        l2.textContent = 'Skill Session';
+        v2.value = 'Morning Session (9 AM)';
+      } else {
+        l1.textContent = 'Jersey Size';
+        l2.textContent = 'League Age / Division';
+        v2.value = 'Minors (9-10U)';
+      }
+    }
+
+    function submitAthleteRegistration(e) {
+      e.preventDefault();
+      const first = document.getElementById('reg-first').value.trim();
+      const last = document.getElementById('reg-last').value.trim();
+      const program = document.getElementById('reg-program').value;
+      const guardian = document.getElementById('reg-guardian').value.trim();
+      const medical = document.getElementById('reg-medical').value.trim() || 'No Alerts';
+      const payment = document.getElementById('reg-payment').value;
+
+      athletes.unshift({
+        id: 'a' + Date.now(),
+        name: `${first} ${last}`,
+        ageGrade: 'New Registrant',
+        program,
+        division: document.getElementById('dyn-val-2').value,
+        guardian,
+        phone: '(541) 247-5501',
+        waiver: 'Signed v2.4',
+        payment,
+        medical
+      });
+
+      totalAthletes += 1;
+      document.getElementById('kpi-athletes').textContent = totalAthletes;
+      renderAthletes();
+      closeModal('register-modal');
+      e.target.reset();
+      showToast('Athlete Registered', `${first} ${last} added to ${program} with signed waiver v2.4.`);
+    }
+
+    function submitVolunteerHours(e) {
+      e.preventDefault();
+      const volId = document.getElementById('log-volunteer').value;
+      const hrs = parseFloat(document.getElementById('log-hours').value);
+      const cat = document.getElementById('log-category').value;
+      const v = volunteers.find(item => item.id === volId);
+
+      if (v && !isNaN(hrs)) {
+        v.hours += hrs;
+        totalHours += hrs;
+        const formattedHours = totalHours.toLocaleString('en-US');
+        const formattedValue = '$' + Math.round(totalHours * IN_KIND_RATE).toLocaleString('en-US');
+
+        document.getElementById('kpi-hours').textContent = `${formattedHours} hrs`;
+        document.getElementById('kpi-grant-val').textContent = `${formattedValue} value`;
+        document.getElementById('card-hours-text').textContent = `${formattedHours} hrs`;
+        document.getElementById('card-value-text').textContent = formattedValue;
+        renderVolunteers();
+        closeModal('hours-modal');
+        showToast('Grant Hours Logged', `+${hrs} hrs (${cat}) logged for ${v.name} at $33.49/hr.`);
+      }
+    }
+
+    function triggerGrantExport() {
+      const val = Math.round(totalHours * IN_KIND_RATE).toLocaleString('en-US');
+      showToast('Grant CSV Generated', `Exported ${totalHours.toLocaleString()} auditable hours ($${val} in-kind valuation).`);
+    }
+
+    let toastTimer;
+    function showToast(title, desc) {
+      const toast = document.getElementById('toast');
+      document.getElementById('toast-title').textContent = title;
+      document.getElementById('toast-desc').textContent = desc;
+      toast.classList.remove('hidden');
+      requestAnimationFrame(() => {
+        toast.classList.remove('translate-y-4', 'opacity-0');
+      });
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => {
+        toast.classList.add('translate-y-4', 'opacity-0');
+        setTimeout(() => toast.classList.add('hidden'), 300);
+      }, 3600);
+    }
+
+    // Initialize tables on load
+    renderVolunteers();
+    renderAthletes();
+  </script>
+</body>
+</html>
