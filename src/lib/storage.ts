@@ -1,45 +1,82 @@
 import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
-const s3 = new S3Client({
-  region: process.env.S3_REGION ?? "auto",
-  endpoint: process.env.S3_ENDPOINT!,
-  credentials: {
-    accessKeyId: process.env.S3_ACCESS_KEY_ID!,
-    secretAccessKey: process.env.S3_SECRET_ACCESS_KEY!,
-  },
-  forcePathStyle: true,
-});
+export const ALLOWED_PROOF_TYPES = [
+  "application/pdf",
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+  "image/heic",
+] as const;
+export type ProofContentType = (typeof ALLOWED_PROOF_TYPES)[number];
 
-const BUCKET = process.env.S3_BUCKET!;
+export const MAX_PROOF_BYTES = 10 * 1024 * 1024; // 10 MB
+
+export function credentialKeyPrefix(userId: string) {
+  return `credentials/${userId}/`;
+}
+
+let s3: S3Client | null = null;
+
+function getS3(): S3Client {
+  s3 ??= new S3Client({
+    region: process.env.S3_REGION ?? "auto",
+    endpoint: process.env.S3_ENDPOINT,
+    credentials: {
+      accessKeyId: process.env.S3_ACCESS_KEY_ID ?? "",
+      secretAccessKey: process.env.S3_SECRET_ACCESS_KEY ?? "",
+    },
+    forcePathStyle: true,
+    // Railway (S3-compatible) rejects the SDK's default flexible checksums.
+    requestChecksumCalculation: "WHEN_REQUIRED",
+    responseChecksumValidation: "WHEN_REQUIRED",
+  });
+  return s3;
+}
+
+function bucket(): string {
+  const b = process.env.S3_BUCKET;
+  if (!b) throw new Error("S3_BUCKET is not configured");
+  return b;
+}
 
 export async function getCredentialUploadUrl({
   userId,
   fileName,
   contentType,
+  contentLength,
 }: {
   userId: string;
   fileName: string;
   contentType: string;
+  contentLength: number;
 }) {
-  const sanitized = fileName.replace(/[^a-zA-Z0-9._-]/g, "_");
-  const key = `credentials/${userId}/${Date.now()}-${sanitized}`;
+  if (!(ALLOWED_PROOF_TYPES as readonly string[]).includes(contentType)) {
+    throw new Error("Unsupported file type");
+  }
+  if (!Number.isInteger(contentLength) || contentLength <= 0 || contentLength > MAX_PROOF_BYTES) {
+    throw new Error("File is empty or too large");
+  }
+
+  const sanitized = fileName.replace(/[^a-zA-Z0-9._-]/g, "_").slice(-100);
+  const key = `${credentialKeyPrefix(userId)}${Date.now()}-${sanitized}`;
 
   const command = new PutObjectCommand({
-    Bucket: BUCKET,
+    Bucket: bucket(),
     Key: key,
     ContentType: contentType,
+    ContentLength: contentLength,
   });
 
-  const uploadUrl = await getSignedUrl(s3, command, { expiresIn: 300 });
+  const uploadUrl = await getSignedUrl(getS3(), command, { expiresIn: 300 });
   return { uploadUrl, objectKey: key };
 }
 
 export async function getPrivateDocumentReadUrl(objectKey: string) {
   const command = new GetObjectCommand({
-    Bucket: BUCKET,
+    Bucket: bucket(),
     Key: objectKey,
   });
 
-  return getSignedUrl(s3, command, { expiresIn: 300 });
+  return getSignedUrl(getS3(), command, { expiresIn: 300 });
 }

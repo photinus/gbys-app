@@ -33,9 +33,14 @@ export const userCredentials = pgTable(
     expiresAt: timestamp("expires_at", { withTimezone: true }),
     proofObjectKey: text("proof_object_key"), // Railway S3 bucket object key
     reviewerNotes: text("reviewer_notes"),
+    // "Reviewed by / at": set for BOTH approve and reject decisions (name kept for compatibility).
     verifiedByUserId: text("verified_by_user_id").references(() => users.id),
     verifiedAt: timestamp("verified_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
   },
   (t) => [
     index("user_credentials_user_idx").on(t.userId),

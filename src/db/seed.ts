@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { eq } from "drizzle-orm";
 import { db } from "./index";
 import { credentialDefinitions, resources } from "./schema";
 
@@ -37,28 +38,25 @@ async function seed() {
 
   console.log("Seeding sample Gold Beach facilities...");
 
-  const [gym] = await db
-    .insert(resources)
-    .values({
-      name: "Gold Beach High School Gym",
-      locationAddress: "29516 Ellensburg Ave, Gold Beach, OR 97444",
-    })
-    .returning();
+  const ADDRESS = "29516 Ellensburg Ave, Gold Beach, OR 97444";
 
-  if (gym) {
-    await db.insert(resources).values([
-      {
-        parentResourceId: gym.id,
-        name: "GBHS Gym - Mat 1 (North)",
-        locationAddress: "29516 Ellensburg Ave, Gold Beach, OR 97444",
-      },
-      {
-        parentResourceId: gym.id,
-        name: "GBHS Gym - Mat 2 (South)",
-        locationAddress: "29516 Ellensburg Ave, Gold Beach, OR 97444",
-      },
-    ]);
+  async function ensureResource(name: string, parentResourceId?: string) {
+    const [existing] = await db
+      .select()
+      .from(resources)
+      .where(eq(resources.name, name))
+      .limit(1);
+    if (existing) return existing;
+    const [created] = await db
+      .insert(resources)
+      .values({ name, locationAddress: ADDRESS, parentResourceId })
+      .returning();
+    return created;
   }
+
+  const gym = await ensureResource("Gold Beach High School Gym");
+  await ensureResource("GBHS Gym - Mat 1 (North)", gym.id);
+  await ensureResource("GBHS Gym - Mat 2 (South)", gym.id);
 
   console.log("Seed complete.");
 }

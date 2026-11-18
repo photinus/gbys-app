@@ -1,0 +1,4 @@
+{
+  "/zz-preview/page": "app/zz-preview/page.js",
+  "/(public)/page": "app/(public)/page.js"
+}

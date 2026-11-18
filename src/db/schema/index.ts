@@ -5,3 +5,4 @@ export * from "./compliance";
 export * from "./volunteers";
 export * from "./registration";
 export * from "./facilities";
+export * from "./relations";

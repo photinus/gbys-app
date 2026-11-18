@@ -1,0 +1,85 @@
+@import "tailwindcss";
+
+@theme {
+  --color-alabaster: #f4f3ef;
+  --color-shell: #faf9f6;
+  --color-charcoal: #1c1c1e;
+  --color-periwinkle: #95a9f9;
+  --color-sage: #8ce09b;
+  --color-coral: #f79a93;
+  --color-amber-soft: #f6b982;
+  --color-lavender-card: #ecebfa;
+  --color-peach-card: #f6eae1;
+  --color-mint-card: #e6f2ea;
+  --color-line: #e6e4dd;
+  --color-line-soft: #f1efe9;
+  --color-rail: #f7f6f2;
+
+  --font-sans: "Plus Jakarta Sans Variable", Inter, sans-serif;
+
+  --radius-card: 26px;
+  --radius-kpi: 24px;
+
+  --shadow-card: 0 2px 12px rgba(0, 0, 0, 0.02);
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    background-color: var(--color-alabaster);
+    color: var(--color-charcoal);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  ::selection {
+    background-color: rgb(149 169 249 / 0.3);
+  }
+}
+
+/* Subtle scrollbars (from mockup) */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #dcdad3;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #c4c1b8;
+}
+
+
+/* Sheet slide-in / dialog fade-in (native <dialog> top-layer transitions) */
+dialog.gbys-sheet,
+dialog.gbys-modal {
+  transition:
+    opacity 0.2s ease,
+    transform 0.25s ease,
+    overlay 0.25s allow-discrete,
+    display 0.25s allow-discrete;
+}
+dialog.gbys-sheet:not([open]) {
+  opacity: 0;
+  transform: translateX(100%);
+}
+dialog.gbys-modal:not([open]) {
+  opacity: 0;
+  transform: translateY(8px) scale(0.98);
+}
+@starting-style {
+  dialog.gbys-sheet[open] {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+  dialog.gbys-modal[open] {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+}
