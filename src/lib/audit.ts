@@ -56,7 +56,16 @@ export type AuditAction =
   | "credential_definition.updated"
   | "credential_definition.archived"
   | "credential_definition.restored"
-  | "audit.viewed";
+  | "audit.viewed"
+  | "volunteer_role.created"
+  | "volunteer_role.updated"
+  | "volunteer_role.archived"
+  | "volunteer_role.restored"
+  | "volunteer_role.signed_up"
+  | "volunteer_role.approved"
+  | "volunteer_role.declined"
+  | "volunteer_role.withdrawn"
+  | "volunteer_role.ended";
 
 export type AuditTarget =
   | "athlete"
@@ -77,7 +86,9 @@ export type AuditTarget =
   | "registration"
   | "org_settings"
   | "credential_definition"
-  | "audit_log";
+  | "audit_log"
+  | "volunteer_role"
+  | "volunteer_role_assignment";
 
 export async function writeAudit(
   e: {
