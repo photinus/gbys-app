@@ -50,7 +50,7 @@ export function MotionCard({
 
       {m.result ? (
         <p className="text-sm text-stone-600">
-          <strong className={m.result.passed ? "text-emerald-800" : "text-rose-800"}>{m.result.passed ? "Passed" : "Failed"}.</strong> {m.result.reason}
+          <span className={m.result.passed ? "font-semibold text-emerald-800" : "font-semibold text-rose-800"}>{m.result.reason}</span>
         </p>
       ) : null}
 
