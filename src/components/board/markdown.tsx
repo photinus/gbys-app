@@ -9,8 +9,8 @@ import type { ReactNode } from "react";
  * Links are limited to http(s) and mailto; anything else (javascript:, data:, relative)
  * is rendered as its plain text. Images are not supported.
  *
- * Supported: #-###### headings, paragraphs (single newlines kept), -/*/+ and 1. lists,
- * > quotes, --- rules, ``` fenced code, `code`, **bold**, *italic*, [text](url), bare URLs.
+ * Supported: headings (# to ######), paragraphs (single newlines kept), bullet and numbered lists,
+ * blockquotes, horizontal rules, fenced code, inline code, bold, italic, [text](url) links and bare URLs.
  */
 
 export function safeHref(raw: string): string | null {
