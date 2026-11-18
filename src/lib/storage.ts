@@ -80,3 +80,30 @@ export async function getPrivateDocumentReadUrl(objectKey: string) {
 
   return getSignedUrl(getS3(), command, { expiresIn: 300 });
 }
+
+// ---- Server-side private objects (photos). No browser PUT, so no bucket CORS needed. ----
+
+export async function putPrivateObject(key: string, body: Buffer, contentType: string): Promise<void> {
+  await getS3().send(
+    new PutObjectCommand({ Bucket: bucket(), Key: key, Body: body, ContentType: contentType, ContentLength: body.length })
+  );
+}
+
+/** Returns the object bytes, or null if it does not exist. */
+export async function getPrivateObject(key: string): Promise<{ body: Buffer; contentType: string } | null> {
+  try {
+    const res = await getS3().send(new GetObjectCommand({ Bucket: bucket(), Key: key }));
+    if (!res.Body) return null;
+    const bytes = await res.Body.transformToByteArray();
+    return { body: Buffer.from(bytes), contentType: res.ContentType ?? "application/octet-stream" };
+  } catch (err) {
+    const name = (err as { name?: string }).name;
+    if (name === "NoSuchKey" || name === "NotFound") return null;
+    throw err;
+  }
+}
+
+export async function deletePrivateObject(key: string): Promise<void> {
+  const { DeleteObjectCommand } = await import("@aws-sdk/client-s3");
+  await getS3().send(new DeleteObjectCommand({ Bucket: bucket(), Key: key }));
+}

@@ -57,6 +57,13 @@
       "when": 1795021169977,
       "tag": "0007_volunteer_roles",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1795034809590,
+      "tag": "0008_photos_and_board",
+      "breakpoints": true
     }
   ]
 }

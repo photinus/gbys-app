@@ -65,7 +65,25 @@ export type AuditAction =
   | "volunteer_role.approved"
   | "volunteer_role.declined"
   | "volunteer_role.withdrawn"
-  | "volunteer_role.ended";
+  | "volunteer_role.ended"
+  | "photo.updated"
+  | "photo.removed"
+  | "board_member.added"
+  | "board_member.updated"
+  | "board_member.ended"
+  | "board_meeting.created"
+  | "board_meeting.updated"
+  | "board_meeting.cancelled"
+  | "board_attendance.recorded"
+  | "board_minutes.saved"
+  | "board_minutes.approved"
+  | "board_minutes.published"
+  | "board_motion.created"
+  | "board_motion.updated"
+  | "board_motion.opened"
+  | "board_motion.closed"
+  | "board_motion.withdrawn"
+  | "board_vote.cast";
 
 export type AuditTarget =
   | "athlete"
@@ -88,7 +106,12 @@ export type AuditTarget =
   | "credential_definition"
   | "audit_log"
   | "volunteer_role"
-  | "volunteer_role_assignment";
+  | "volunteer_role_assignment"
+  | "board_member"
+  | "board_meeting"
+  | "board_minutes"
+  | "board_motion"
+  | "board_vote";
 
 export async function writeAudit(
   e: {

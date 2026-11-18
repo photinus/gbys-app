@@ -16,6 +16,9 @@ export const athletes = pgTable("athletes", {
   gender: text("gender"),
   gradeLevel: text("grade_level"),
   medicalNotes: text("medical_notes"), // Allergies, asthma inhaler, epi-pen, etc.
+  // Athlete photo (private S3 key, served only via the access-checked /media/athlete/[id] route).
+  photoObjectKey: text("photo_object_key"),
+  photoUpdatedAt: timestamp("photo_updated_at", { withTimezone: true }),
   emergencyContacts: jsonb("emergency_contacts")
     .$type<EmergencyContact[]>()
     .notNull()

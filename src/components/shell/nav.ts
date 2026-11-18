@@ -21,7 +21,9 @@ export type NavIconKey =
   | "grants"
   | "programs"
   | "settings"
-  | "audit";
+  | "audit"
+  | "board"
+  | "boardAdmin";
 
 export interface NavItem {
   label: string;
@@ -62,7 +64,10 @@ export function getNavGroups(orgRole: OrgRole, opts: NavOptions = {}): NavGroup[
     {
       id: "overview",
       title: "Overview",
-      items: [{ label: "Dashboard", href: "/dashboard", icon: "dashboard" }],
+      items: [
+        { label: "Dashboard", href: "/dashboard", icon: "dashboard" },
+        { label: "Board meetings", href: "/board", icon: "board" },
+      ],
     },
     {
       id: "family",
@@ -96,6 +101,7 @@ export function getNavGroups(orgRole: OrgRole, opts: NavOptions = {}): NavGroup[
             { label: "Grants", href: "/admin/grants", icon: "grants" },
             { label: "Programs", href: "/admin/programs", icon: "programs" },
             { label: "Settings", href: "/admin/settings", icon: "settings" },
+            { label: "Board of Directors", href: "/admin/board", icon: "boardAdmin" },
             { label: "Audit log", href: "/admin/audit", icon: "audit" },
           ]
         : [],
