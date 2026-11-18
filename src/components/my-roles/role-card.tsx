@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Check, X } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { Select } from "@/components/ui/select";
@@ -56,21 +55,9 @@ export function RoleCard({ role }: { role: OpenRoleRow }) {
             {role.programName ?? "Organization-wide"} · {role.expectationText}
           </p>
         </div>
-        <div className="flex flex-wrap gap-1.5">
-          <Badge tone={role.requiresApproval ? "warning" : "success"}>
-            {role.requiresApproval ? "Needs approval" : "Join right away"}
-          </Badge>
-        </div>
       </div>
 
       {role.description ? <p className="mt-2 whitespace-pre-line text-sm text-stone-600">{role.description}</p> : null}
-
-      {role.grantsAccess ? (
-        <p className="mt-3 rounded-xl bg-amber-soft/30 px-3 py-2 text-xs font-medium text-amber-950">
-          Includes roster access — needs approval. This role lets you see team rosters and emergency
-          contacts, so a program leader checks every request first.
-        </p>
-      ) : null}
 
       {role.credentials.length > 0 ? (
         <div className="mt-3">

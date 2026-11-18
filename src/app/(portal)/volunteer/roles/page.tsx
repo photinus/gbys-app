@@ -75,7 +75,7 @@ export default async function VolunteerRolesPage({
       <Card id="find">
         <CardHeader
           title="Find a role"
-          description="Roles marked “Join right away” start immediately. Others are reviewed by a program leader."
+          description="Pick a role and a term, then sign up or send a request."
         />
         <div className="space-y-4">
           <ProgramFilter options={programOptions} value={filter} />

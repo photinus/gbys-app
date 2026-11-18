@@ -32,7 +32,7 @@ export function UserTable({ rows }: { rows: UserListRow[] }) {
               <TR key={r.id} data-testid="user-row">
                 <TD className="pl-2">
                   <Link href={`/admin/users/${r.id}`} className="flex items-center gap-3">
-                    <UserAvatar name={r.name} size="sm" />
+                    <UserAvatar name={r.name} src={r.avatarUrl} size="sm" />
                     <span className="min-w-0">
                       <span className="block truncate font-semibold text-charcoal hover:underline">{r.name}</span>
                       <span className="block truncate text-xs text-stone-500">{r.email}</span>
@@ -68,7 +68,7 @@ export function UserTable({ rows }: { rows: UserListRow[] }) {
               className="block rounded-2xl border border-line bg-white p-4 hover:bg-alabaster/80"
             >
               <div className="flex items-center gap-3">
-                <UserAvatar name={r.name} size="sm" />
+                <UserAvatar name={r.name} src={r.avatarUrl} size="sm" />
                 <div className="min-w-0 flex-1">
                   <div className="truncate font-semibold text-charcoal">{r.name}</div>
                   <div className="truncate text-xs text-stone-500">{r.email}</div>

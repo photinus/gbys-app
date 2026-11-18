@@ -26,7 +26,7 @@ import {
   type OrgRoleValue,
   type ProfileAdminInput,
 } from "@/lib/validation/users-admin";
-import { DalError, isBoard, type ProgramRole, type SessionContext } from "./context";
+import { DalError, avatarUrlFor, isBoard, type ProgramRole, type SessionContext } from "./context";
 import { isSuperAdmin } from "./permissions";
 import { getInKindRateCents } from "./settings";
 import { laYearBounds, laYearOf } from "./volunteer-hours";
@@ -48,6 +48,7 @@ export interface UserListRow {
   programRoleCount: number;
   verifiedCredentialCount: number;
   emailBounced: boolean;
+  avatarUrl: string | null;
 }
 
 export interface UserListResult {
@@ -90,6 +91,9 @@ export async function listUsers(ctx: SessionContext, input: ListUsersInput = {})
       deletedAt: users.deletedAt,
       createdAt: users.createdAt,
       emailBounced: users.emailBounced,
+      image: users.image,
+      avatarObjectKey: users.avatarObjectKey,
+      avatarUpdatedAt: users.avatarUpdatedAt,
       lastSignInAt: sql<Date | null>`(select max(${sessions.createdAt}) from ${sessions} where ${sessions.userId} = "users"."id")`.mapWith(
         (v) => (v == null ? null : new Date(v))
       ),
@@ -105,7 +109,11 @@ export async function listUsers(ctx: SessionContext, input: ListUsersInput = {})
     .offset((page - 1) * USER_PAGE_SIZE);
 
   return {
-    rows: rows.map(({ deletedAt, ...r }) => ({ ...r, isActive: !deletedAt })),
+    rows: rows.map(({ deletedAt, image, avatarObjectKey, avatarUpdatedAt, ...r }) => ({
+      ...r,
+      avatarUrl: avatarUrlFor({ id: r.id, image, avatarObjectKey, avatarUpdatedAt }),
+      isActive: !deletedAt,
+    })),
     total,
     page,
     pageSize: USER_PAGE_SIZE,
@@ -120,6 +128,7 @@ export interface UserAdminDetail {
   id: string;
   name: string;
   email: string;
+  avatarUrl: string | null;
   phone: string | null;
   smsOptIn: boolean;
   emailBounced: boolean;
@@ -171,6 +180,9 @@ export async function getUserAdmin(ctx: SessionContext, userId: string): Promise
       orgRole: users.orgRole,
       createdAt: users.createdAt,
       deletedAt: users.deletedAt,
+      image: users.image,
+      avatarObjectKey: users.avatarObjectKey,
+      avatarUpdatedAt: users.avatarUpdatedAt,
     })
     .from(users)
     .where(eq(users.id, id))
@@ -247,6 +259,7 @@ export async function getUserAdmin(ctx: SessionContext, userId: string): Promise
     id: u.id,
     name: u.name,
     email: u.email,
+    avatarUrl: avatarUrlFor(u),
     phone: u.phone,
     smsOptIn: u.smsOptIn,
     emailBounced: u.emailBounced,

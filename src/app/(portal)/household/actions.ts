@@ -13,6 +13,7 @@ import {
   updateMyProfile,
   type AthleteDetail,
 } from "@/lib/dal/households";
+import { removeAthletePhoto, removeMyAvatar, uploadAthletePhoto, uploadMyAvatar } from "@/lib/dal/photos";
 import { athleteSchema, inviteSchema, profileSchema } from "@/lib/validation/household";
 
 // Inputs are validated with zod here (and again, defensively, inside the DAL).
@@ -126,5 +127,36 @@ export async function acceptInviteAction(token: string): Promise<ActionResult<{ 
     revalidatePath("/household");
     revalidatePath("/dashboard");
   }
+  return res;
+}
+
+// ---- Photos (FormData uploads; the DAL validates content, size and access) ----
+export async function uploadAthletePhotoAction(athleteId: string, formData: FormData): Promise<ActionResult<{ url: string }>> {
+  const res = await runAction(async (ctx) => {
+    const { photoUrl } = await uploadAthletePhoto(ctx, String(athleteId), formData.get("photo"));
+    return { url: photoUrl };
+  });
+  if (res.ok) revalidatePath("/household");
+  return res;
+}
+
+export async function removeAthletePhotoAction(athleteId: string): Promise<ActionResult> {
+  const res = await runAction((ctx) => removeAthletePhoto(ctx, String(athleteId)));
+  if (res.ok) revalidatePath("/household");
+  return res;
+}
+
+export async function uploadAvatarAction(formData: FormData): Promise<ActionResult<{ url: string }>> {
+  const res = await runAction(async (ctx) => {
+    const { avatarUrl } = await uploadMyAvatar(ctx, formData.get("photo"));
+    return { url: avatarUrl };
+  });
+  if (res.ok) revalidatePath("/", "layout");
+  return res;
+}
+
+export async function removeAvatarAction(): Promise<ActionResult> {
+  const res = await runAction((ctx) => removeMyAvatar(ctx));
+  if (res.ok) revalidatePath("/", "layout");
   return res;
 }

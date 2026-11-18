@@ -7,6 +7,9 @@ import type { AthleteDetail, AthleteListItem } from "@/lib/dal/households";
 import { formatDob } from "@/lib/format";
 import { formatPhone } from "@/lib/validation/household";
 import { ageFromDob } from "./age";
+import { PhotoAvatar } from "@/components/photos/photo-avatar";
+import { PhotoUploader } from "@/components/photos/photo-uploader";
+import { removeAthletePhotoAction, uploadAthletePhotoAction } from "@/app/(portal)/household/actions";
 
 export type DetailState =
   | { status: "loading" }
@@ -66,6 +69,20 @@ export function AthleteDetailSheet({
             <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-700" />
             Viewing medical and emergency details is recorded in the audit log.
           </div>
+
+          <section data-testid="athlete-photo">
+            {state.detail.canEdit ? (
+              <PhotoUploader
+                key={`${state.detail.id}-${state.detail.photoUrl ?? "none"}`}
+                name={title}
+                currentUrl={state.detail.photoUrl}
+                upload={(fd) => uploadAthletePhotoAction(state.detail.id, fd)}
+                remove={() => removeAthletePhotoAction(state.detail.id)}
+              />
+            ) : (
+              <PhotoAvatar name={title} src={state.detail.photoUrl} size="xl" />
+            )}
+          </section>
 
           <section>
             <h4 className="mb-2 flex items-center gap-2 text-sm font-bold text-charcoal">

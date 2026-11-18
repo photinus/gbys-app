@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { Button, Card, CardHeader, Field, Input, Switch, useToast } from "@/components/ui";
-import { updateProfileAction } from "@/app/(portal)/household/actions";
+import { PhotoUploader } from "@/components/photos/photo-uploader";
+import { removeAvatarAction, updateProfileAction, uploadAvatarAction } from "@/app/(portal)/household/actions";
 import type { MyProfile } from "@/lib/dal/households";
 import { formatPhone } from "@/lib/validation/household";
 import { FormError } from "./form-error";
@@ -23,6 +24,16 @@ export function ProfileCard({ profile }: { profile: MyProfile }) {
         title="Your profile"
         description="Contact details coaches and GBYS staff can use to reach you."
       />
+      <div className="mb-5 border-b border-line pb-5" data-testid="profile-photo">
+        <PhotoUploader
+          name={profile.name}
+          currentUrl={profile.avatarUrl}
+          size="lg"
+          removable={profile.avatarUploaded}
+          upload={uploadAvatarAction}
+          remove={removeAvatarAction}
+        />
+      </div>
       <form onSubmit={onSubmit} className="space-y-4">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="Full name">
