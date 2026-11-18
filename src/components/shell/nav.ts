@@ -4,6 +4,8 @@ export type NavIconKey =
   | "dashboard"
   | "household"
   | "credentials"
+  | "registrations"
+  | "programHub"
   | "shifts"
   | "hours"
   | "checkin"
@@ -21,14 +23,21 @@ export interface NavItem {
 export interface NavOptions {
   /** Board, program admins, head coaches and team managers get the coordinator entry. */
   isShiftCoordinator?: boolean;
+  /** Board or any program staff role: program hub (seasons, rosters, emergency sheets). */
+  isProgramStaff?: boolean;
 }
 
 const MEMBER_ITEMS: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: "dashboard" },
   { label: "Household", href: "/household", icon: "household" },
+  { label: "Registrations", href: "/registrations", icon: "registrations" },
   { label: "Credentials", href: "/volunteer/credentials", icon: "credentials" },
   { label: "Shifts", href: "/volunteer/shifts", icon: "shifts" },
   { label: "Hours", href: "/volunteer/hours", icon: "hours" },
+];
+
+const STAFF_ITEMS: NavItem[] = [
+  { label: "My programs", href: "/programs", icon: "programHub" },
 ];
 
 const COORDINATOR_ITEMS: NavItem[] = [
@@ -46,6 +55,7 @@ export function getNavItems(orgRole: OrgRole, opts: NavOptions = {}): NavItem[] 
   const board = orgRole === "super_admin" || orgRole === "board_member";
   return [
     ...MEMBER_ITEMS,
+    ...(board || opts.isProgramStaff ? STAFF_ITEMS : []),
     ...(board || opts.isShiftCoordinator ? COORDINATOR_ITEMS : []),
     ...(board ? BOARD_ITEMS : []),
   ];
