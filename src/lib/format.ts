@@ -100,3 +100,64 @@ export function daysUntil(d: Date | string | number): number {
   const n = Date.UTC(+today.slice(0, 4), +today.slice(5, 7) - 1, +today.slice(8, 10));
   return Math.round((t - n) / 86_400_000);
 }
+
+const timeFmt = new Intl.DateTimeFormat("en-US", {
+  timeZone: TZ,
+  hour: "numeric",
+  minute: "2-digit",
+});
+
+const hmFmt = new Intl.DateTimeFormat("en-GB", {
+  timeZone: TZ,
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
+});
+
+/**
+ * Convert a `<input type="datetime-local">` value (YYYY-MM-DDTHH:mm, Pacific wall
+ * clock) into a UTC Date. DST-safe.
+ */
+export function laDateTimeInputToUtc(local: string): Date {
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(local);
+  if (!m) throw new Error(`Invalid date-time: ${local}`);
+  const wall = Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]);
+  let off = laOffsetMinutes(new Date(wall));
+  let utc = wall - off * 60_000;
+  const off2 = laOffsetMinutes(new Date(utc));
+  if (off2 !== off) {
+    off = off2;
+    utc = wall - off * 60_000;
+  }
+  return new Date(utc);
+}
+
+/** UTC Date -> YYYY-MM-DDTHH:mm (Pacific wall clock) for `<input type="datetime-local">`. */
+export function utcToLaDateTimeInput(d: Date | string | number): string {
+  const date = toDate(d);
+  return `${ymdFmt.format(date)}T${hmFmt.format(date)}`;
+}
+
+/** e.g. "5:30 PM" in Pacific time. */
+export function formatTime(d: Date | string | number): string {
+  return timeFmt.format(toDate(d));
+}
+
+/** e.g. "Nov 17, 2026, 5:30 PM – 7:00 PM" (end date shown only if it differs). */
+export function formatTimeRange(start: Date | string | number, end: Date | string | number): string {
+  const s = toDate(start);
+  const e = toDate(end);
+  const sameDay = utcToLaDateInput(s) === utcToLaDateInput(e);
+  return `${formatDateTime(s)} – ${sameDay ? formatTime(e) : formatDateTime(e)}`;
+}
+
+/** Minutes -> "1.5 hrs" / "1 hr" / "0.25 hrs" (max 2 decimals). */
+export function formatHours(minutes: number): string {
+  const hrs = Math.round((minutes / 60) * 100) / 100;
+  return `${hrs.toLocaleString("en-US", { maximumFractionDigits: 2 })} ${hrs === 1 ? "hr" : "hrs"}`;
+}
+
+/** Cents -> "$1,234.56". */
+export function formatCents(cents: number): string {
+  return (cents / 100).toLocaleString("en-US", { style: "currency", currency: "USD" });
+}

@@ -8,6 +8,27 @@
       "when": 1794972559763,
       "tag": "0000_mysterious_ultron",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1794977291767,
+      "tag": "0001_sprint2_volunteer_ledger",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1794977292392,
+      "tag": "0002_sprint2_drop_single_assignee",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1794978776290,
+      "tag": "0003_backfill_blank_user_names",
+      "breakpoints": true
     }
   ]
 }

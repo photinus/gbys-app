@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, ShieldCheck, Users } from "lucide-react";
+import { ArrowRight, CalendarCheck, Clock, ShieldCheck, Users } from "lucide-react";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { PastelCard } from "@/components/ui/pastel-card";
 import { requireSession } from "@/lib/dal/context";
+import { getMyHoursSummary } from "@/lib/dal/volunteer-hours";
+import { formatHours } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Dashboard" };
 
@@ -22,6 +24,7 @@ function greeting(): string {
 
 export default async function DashboardPage() {
   const ctx = await requireSession("/dashboard");
+  const hours = await getMyHoursSummary(ctx);
   const firstName = ctx.name.trim().split(/\s+/)[0] || ctx.email.split("@")[0] || "there";
 
   return (
@@ -33,7 +36,7 @@ export default async function DashboardPage() {
         <p className="mt-1 text-sm text-stone-500">Here&apos;s a quick way to get to what you need.</p>
       </div>
 
-      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <Link href="/household" className="block rounded-[24px] focus:outline-none focus-visible:ring-2 focus-visible:ring-periwinkle/60">
           <KpiCard
             icon={<Users className="w-5 h-5" />}
@@ -51,6 +54,20 @@ export default async function DashboardPage() {
             value="My credentials"
             hint="Upload background checks and certifications"
             tone="sage"
+            className="h-full"
+          />
+        </Link>
+        <Link href="/volunteer/hours" className="block rounded-[24px] focus:outline-none focus-visible:ring-2 focus-visible:ring-periwinkle/60">
+          <KpiCard
+            icon={<Clock className="w-5 h-5" />}
+            label="My volunteer hours (YTD)"
+            value={formatHours(hours.verifiedMinutes)}
+            hint={
+              hours.pendingMinutes > 0
+                ? `Verified in ${hours.year}. ${formatHours(hours.pendingMinutes)} pending review`
+                : `Verified in ${hours.year}. Log or review your hours`
+            }
+            tone="amber"
             className="h-full"
           />
         </Link>
@@ -80,6 +97,17 @@ export default async function DashboardPage() {
             }
           >
             Coaches and volunteers: upload proof of your background check, SafeSport and concussion training.
+          </PastelCard>
+          <PastelCard
+            tone="peach"
+            title="Sign up for a volunteer shift"
+            action={
+              <Link href="/volunteer/shifts" aria-label="Go to volunteer shifts" className="text-amber-800 hover:text-amber-950">
+                <CalendarCheck className="h-4 w-4" />
+              </Link>
+            }
+          >
+            Pick up an open shift. Hours from shifts you attend are added to your ledger automatically.
           </PastelCard>
         </div>
       </section>

@@ -1,0 +1,40 @@
+import "server-only";
+import { hasProgramRole, isBoard, type SessionContext } from "./context";
+
+/**
+ * Shared authorization rules for Sprint 2. Every DAL function must still call
+ * these itself (layouts do not run for server actions).
+ *
+ * programId === null means an org-wide shift/entry, which only the board manages.
+ */
+export function canManageShifts(ctx: SessionContext, programId: string | null): boolean {
+  if (isBoard(ctx)) return true;
+  return programId !== null && hasProgramRole(ctx, programId, ["program_admin"]);
+}
+
+/** May open a shift roster and check volunteers in (kiosk / coordinator). */
+export function canCheckIn(ctx: SessionContext, programId: string | null): boolean {
+  if (canManageShifts(ctx, programId)) return true;
+  return (
+    programId !== null &&
+    hasProgramRole(ctx, programId, ["head_coach", "team_manager"])
+  );
+}
+
+/** Program ids where ctx may check volunteers in (board = all, returned as "all"). */
+export function checkInProgramIds(ctx: SessionContext): "all" | string[] {
+  if (isBoard(ctx)) return "all";
+  return [
+    ...new Set(
+      ctx.programRoles
+        .filter((g) => ["program_admin", "head_coach", "team_manager"].includes(g.role))
+        .map((g) => g.programId)
+    ),
+  ];
+}
+
+/** Whether to show the coordinator "Manage shifts" nav entry. */
+export function isShiftCoordinator(ctx: SessionContext): boolean {
+  const ids = checkInProgramIds(ctx);
+  return ids === "all" || ids.length > 0;
+}

@@ -28,7 +28,7 @@ export function PillTabs({
       className={cn("flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-1 sm:pb-0", className)}
     >
       {items.map((item) => {
-        const active = activeHref ? activeHref === item.href : isActivePath(pathname, item.href);
+        const active = activeHref ? activeHref === item.href : isActivePath(pathname, item.href, items.map((i) => i.href));
         return (
           <Link
             key={item.href}

@@ -15,14 +15,40 @@ export type AuditAction =
   | "credential.proof_viewed"
   | "credential.verified"
   | "credential.rejected"
-  | "compliance.queue_viewed";
+  | "compliance.queue_viewed"
+  | "credential.expired"
+  | "cron.compliance_run"
+  | "program.created"
+  | "program.updated"
+  | "program_role.granted"
+  | "program_role.revoked"
+  | "shift.created"
+  | "shift.updated"
+  | "shift.cancelled"
+  | "shift.signed_up"
+  | "shift.signup_cancelled"
+  | "shift.checked_in"
+  | "shift.checkin_undone"
+  | "hours.logged"
+  | "hours.approved"
+  | "hours.rejected"
+  | "hours.deleted"
+  | "grant.report_viewed"
+  | "grant.exported";
 
 export type AuditTarget =
   | "athlete"
   | "user"
   | "household_invite"
   | "user_credential"
-  | "compliance_queue";
+  | "compliance_queue"
+  | "cron"
+  | "program"
+  | "program_role"
+  | "volunteer_shift"
+  | "shift_signup"
+  | "volunteer_log"
+  | "grant_report";
 
 export async function writeAudit(
   e: {

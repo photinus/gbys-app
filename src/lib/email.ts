@@ -1,4 +1,5 @@
 import { Nuntly } from "@nuntly/sdk";
+import { formatDate } from "@/lib/format";
 
 let client: Nuntly | null = null;
 
@@ -130,6 +131,35 @@ export async function sendCredentialReviewedEmail({
             : `<p>Your <strong>${escapeHtml(credentialName)}</strong> was reviewed but could <strong>not be accepted</strong>. Please review the notes below and upload a new submission in the GBYS Volunteer Portal.</p>`
         }
         ${notes ? `<p style="background: #f1f5f9; padding: 12px; border-radius: 6px;">${escapeHtml(notes)}</p>` : ""}
+    `),
+  });
+}
+
+export async function sendComplianceLapseAlertEmail({
+  to,
+  recipientName,
+  coachName,
+  programName,
+  credentialName,
+  expiredAt,
+}: {
+  to: string;
+  recipientName: string;
+  coachName: string;
+  programName: string;
+  credentialName: string;
+  expiredAt: Date;
+}) {
+  // Dates are always rendered in America/Los_Angeles (invariant 9).
+  const expiredOn = formatDate(expiredAt);
+  return sendEmail({
+    to,
+    subject: `Compliance lapse: ${coachName} (${programName}) - ${credentialName} expired`,
+    html: layout(`
+        <h2>Coach Compliance Lapse</h2>
+        <p>Hi ${escapeHtml(recipientName)},</p>
+        <p><strong>${escapeHtml(coachName)}</strong>, a coach in <strong>${escapeHtml(programName)}</strong>, no longer has a current <strong>${escapeHtml(credentialName)}</strong>. It expired on <strong>${escapeHtml(expiredOn)}</strong>, and this credential is required for the program.</p>
+        <p>Please follow up with the coach to renew and upload their updated clearance in the GBYS Volunteer Portal before they continue coaching.</p>
     `),
   });
 }

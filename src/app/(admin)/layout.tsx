@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { notFound } from "next/navigation";
 import { AppShell } from "@/components/shell/app-shell";
+import { isShiftCoordinator } from "@/lib/dal/permissions";
 import { DalError, requireOrgRole } from "@/lib/dal/context";
 
 export default async function AdminLayout({ children }: { children: ReactNode }) {
@@ -13,7 +14,7 @@ export default async function AdminLayout({ children }: { children: ReactNode })
     throw err;
   }
   return (
-    <AppShell user={{ name: ctx.name, email: ctx.email, image: ctx.image, orgRole: ctx.orgRole }}>
+    <AppShell user={{ name: ctx.name, email: ctx.email, image: ctx.image, orgRole: ctx.orgRole, isShiftCoordinator: isShiftCoordinator(ctx) }}>
       {children}
     </AppShell>
   );

@@ -36,6 +36,9 @@ export const userCredentials = pgTable(
     // "Reviewed by / at": set for BOTH approve and reject decisions (name kept for compatibility).
     verifiedByUserId: text("verified_by_user_id").references(() => users.id),
     verifiedAt: timestamp("verified_at", { withTimezone: true }),
+    // Cron dedup stamps for expiration warning emails (see /api/cron/compliance).
+    expiryWarning30SentAt: timestamp("expiry_warning_30_sent_at", { withTimezone: true }),
+    expiryWarning7SentAt: timestamp("expiry_warning_7_sent_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .notNull()
