@@ -1,4 +1,5 @@
 import {
+  Vote,
   CalendarClock,
   Landmark,
   BadgeCheck,
@@ -44,4 +45,5 @@ export const NAV_ICONS: Record<NavIconKey, LucideIcon> = {
   audit: ScrollText,
   board: CalendarClock,
   boardAdmin: Landmark,
+  boardVotes: Vote,
 };

@@ -32,6 +32,7 @@ export async function AppShell({
   const groups = getNavGroups(user.orgRole, {
     isShiftCoordinator: user.isShiftCoordinator,
     isProgramStaff: user.isProgramStaff,
+    isSeatedDirector: user.isSeatedDirector,
     volunteerShifts: isFeatureEnabled("volunteerShifts"),
   });
 
