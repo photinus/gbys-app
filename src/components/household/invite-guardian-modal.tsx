@@ -15,12 +15,12 @@ export function InviteGuardianButton({ athletes }: { athletes: AthleteListItem[]
   return (
     <>
       <Button size="sm" onClick={() => setOpen(true)} disabled={manageable.length === 0}>
-        <UserPlus className="h-4 w-4" /> Invite guardian
+        <UserPlus className="h-4 w-4" /> Invite parent or guardian
       </Button>
       <Modal
         open={open}
         onClose={() => setOpen(false)}
-        title="Invite a co-guardian"
+        title="Invite parent or guardian"
         description="They will get an email link that works for 7 days. They must sign in with the invited email address."
       >
         <InviteForm athletes={manageable} onDone={() => setOpen(false)} />
@@ -42,7 +42,7 @@ function InviteForm({ athletes, onDone }: { athletes: AthleteListItem[]; onDone:
 
   return (
     <form onSubmit={onSubmit} className="space-y-4 text-sm">
-      <Field label="Guardian's email">
+      <Field label="Email address">
         <Input name="email" type="email" required autoComplete="off" placeholder="name@example.com" />
       </Field>
       <Field label="Relationship to the athletes">

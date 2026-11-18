@@ -21,7 +21,10 @@ export type NavIconKey =
   | "grants"
   | "programs"
   | "settings"
-  | "audit";
+  | "audit"
+  | "board"
+  | "boardAdmin"
+  | "boardVotes";
 
 export interface NavItem {
   label: string;
@@ -40,6 +43,8 @@ export interface NavOptions {
   isShiftCoordinator?: boolean;
   /** Board or any program staff role: program hub (seasons, rosters, emergency sheets). */
   isProgramStaff?: boolean;
+  /** Currently seated voting director with a linked account: "My votes" entry. */
+  isSeatedDirector?: boolean;
   /** FEATURE_VOLUNTEER_SHIFTS: shift scheduling entries show only when true (default off). */
   volunteerShifts?: boolean;
 }
@@ -62,7 +67,11 @@ export function getNavGroups(orgRole: OrgRole, opts: NavOptions = {}): NavGroup[
     {
       id: "overview",
       title: "Overview",
-      items: [{ label: "Dashboard", href: "/dashboard", icon: "dashboard" }],
+      items: [
+        { label: "Dashboard", href: "/dashboard", icon: "dashboard" },
+        { label: "Board meetings", href: "/board", icon: "board" },
+        ...(opts.isSeatedDirector ? [{ label: "My votes", href: "/board/votes", icon: "boardVotes" as const }] : []),
+      ],
     },
     {
       id: "family",
@@ -96,6 +105,7 @@ export function getNavGroups(orgRole: OrgRole, opts: NavOptions = {}): NavGroup[
             { label: "Grants", href: "/admin/grants", icon: "grants" },
             { label: "Programs", href: "/admin/programs", icon: "programs" },
             { label: "Settings", href: "/admin/settings", icon: "settings" },
+            { label: "Board of Directors", href: "/admin/board", icon: "boardAdmin" },
             { label: "Audit log", href: "/admin/audit", icon: "audit" },
           ]
         : [],

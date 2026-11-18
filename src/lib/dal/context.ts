@@ -41,6 +41,20 @@ export class DalError extends Error {
  * from the DB on every request). Returns null when unauthenticated or when the
  * user is soft-deleted. Memoized per request via React cache().
  */
+/**
+ * Display avatar: an uploaded profile photo (served by /media/avatar/[userId],
+ * versioned for caching) wins over the provider (Google) picture.
+ */
+export function avatarUrlFor(u: {
+  id: string;
+  image: string | null;
+  avatarObjectKey: string | null;
+  avatarUpdatedAt: Date | null;
+}): string | null {
+  if (u.avatarObjectKey && u.avatarUpdatedAt) return `/media/avatar/${u.id}?v=${u.avatarUpdatedAt.getTime()}`;
+  return u.image ?? null;
+}
+
 export const getSessionContext = cache(async (): Promise<SessionContext | null> => {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session?.user?.id) return null;
@@ -65,7 +79,7 @@ export const getSessionContext = cache(async (): Promise<SessionContext | null> 
     userId: user.id,
     email: user.email,
     name: user.name,
-    image: user.image ?? null,
+    image: avatarUrlFor(user),
     orgRole: user.orgRole,
     programRoles: grants,
   };

@@ -13,6 +13,7 @@ import {
 } from "@/db/schema";
 import type { EmergencyContact } from "@/db/schema/household";
 import { ageFromDob } from "@/components/household/age";
+import { athletePhotoUrl } from "./photos";
 import { writeAudit } from "@/lib/audit";
 import { formatCents } from "@/lib/format";
 import {
@@ -51,6 +52,8 @@ export interface SeasonHeader {
 export interface RosterRow {
   registrationId: string;
   athleteName: string;
+  /** Versioned /media/athlete URL; null when no photo or the registration is cancelled. */
+  photoUrl: string | null;
   age: number | null;
   guardianName: string;
   guardianEmail: string;
@@ -85,6 +88,7 @@ export interface SeasonRoster {
 export interface EmergencyAthlete {
   registrationId: string;
   athleteId: string;
+  photoUrl: string | null;
   firstName: string;
   lastName: string;
   dateOfBirth: string;
@@ -154,6 +158,9 @@ export async function listSeasonRegistrations(
   const regs = await db
     .select({
       registrationId: registrations.id,
+      athleteId: athletes.id,
+      photoObjectKey: athletes.photoObjectKey,
+      photoUpdatedAt: athletes.photoUpdatedAt,
       firstName: athletes.firstName,
       lastName: athletes.lastName,
       dateOfBirth: athletes.dateOfBirth,
@@ -196,6 +203,7 @@ export async function listSeasonRegistrations(
   const all: RosterRow[] = regs.map((r) => ({
     registrationId: r.registrationId,
     athleteName: `${r.firstName} ${r.lastName}`.trim(),
+    photoUrl: r.cancelledAt ? null : athletePhotoUrl({ id: r.athleteId, photoObjectKey: r.photoObjectKey, photoUpdatedAt: r.photoUpdatedAt }),
     age: ageFromDob(r.dateOfBirth),
     guardianName: r.guardianName,
     guardianEmail: r.guardianEmail,
@@ -467,6 +475,8 @@ export async function getEmergencySheet(
       firstName: athletes.firstName,
       lastName: athletes.lastName,
       dateOfBirth: athletes.dateOfBirth,
+      photoObjectKey: athletes.photoObjectKey,
+      photoUpdatedAt: athletes.photoUpdatedAt,
       medicalNotes: athletes.medicalNotes,
       emergencyContacts: athletes.emergencyContacts,
     })
@@ -517,8 +527,9 @@ export async function getEmergencySheet(
     )
     .orderBy(asc(users.name));
 
-  const athleteList: EmergencyAthlete[] = rows.map((r) => ({
+  const athleteList: EmergencyAthlete[] = rows.map(({ photoObjectKey, photoUpdatedAt, ...r }) => ({
     ...r,
+    photoUrl: athletePhotoUrl({ id: r.athleteId, photoObjectKey, photoUpdatedAt }),
     age: ageFromDob(r.dateOfBirth),
     emergencyContacts: r.emergencyContacts ?? [],
     guardians: byAthlete.get(r.athleteId) ?? [],

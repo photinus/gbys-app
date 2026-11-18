@@ -28,9 +28,7 @@ function WithdrawButton({ a }: { a: MyAssignmentRow }) {
     const msg =
       a.status === "pending"
         ? "Cancel this request?"
-        : a.grantsAccess
-          ? "Leave this role? You will also lose the roster access it gave you. Hours you already logged stay on record."
-          : "Leave this role? Hours you already logged stay on record.";
+        : "Leave this role? Hours you already logged stay on record.";
     if (!window.confirm(msg)) return;
     setBusy(true);
     const res = await withdrawMyAssignmentAction(a.id);
@@ -73,7 +71,7 @@ export function MyRoleCard({ a }: { a: MyAssignmentRow }) {
       ) : null}
       {a.status === "pending" ? (
         <p className="mt-3 text-sm text-stone-600">
-          Waiting for approval.{a.grantsAccess ? " This role includes roster access, so a program leader reviews it first." : ""}
+          Waiting for a program leader to review your request.
         </p>
       ) : null}
       {a.status === "declined" && a.decisionNote ? (

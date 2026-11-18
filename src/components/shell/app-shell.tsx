@@ -26,10 +26,13 @@ export async function AppShell({
   children: ReactNode;
 }) {
   const [branding, jar] = await Promise.all([getBranding(), cookies()]);
-  const initialCollapsed = jar.get(SIDEBAR_COOKIE)?.value === "collapsed";
+  const sidebarCookie = jar.get(SIDEBAR_COOKIE)?.value;
+  // Legacy values: "expanded" -> pinned, "collapsed" -> unpinned. No cookie -> unpinned.
+  const initialPinned = sidebarCookie === "pinned" || sidebarCookie === "expanded";
   const groups = getNavGroups(user.orgRole, {
     isShiftCoordinator: user.isShiftCoordinator,
     isProgramStaff: user.isProgramStaff,
+    isSeatedDirector: user.isSeatedDirector,
     volunteerShifts: isFeatureEnabled("volunteerShifts"),
   });
 
@@ -45,7 +48,7 @@ export async function AppShell({
         groups={groups}
         orgName={branding.orgName}
         logoUrl={branding.logoUrl}
-        initialCollapsed={initialCollapsed}
+        initialPinned={initialPinned}
       />
       <div className="flex-1 flex flex-col min-w-0">
         <MobileNav

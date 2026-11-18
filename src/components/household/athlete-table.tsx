@@ -1,9 +1,8 @@
 "use client";
 
-import { HeartPulse, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { useRef, useState } from "react";
 import {
-  Badge,
   Button,
   Card,
   CardHeader,
@@ -21,6 +20,7 @@ import { formatDob } from "@/lib/format";
 import { ageFromDob } from "./age";
 import { AthleteDetailSheet, detailStateFromResult, type DetailState } from "./athlete-detail-sheet";
 import { AthleteFormModal } from "./athlete-form-modal";
+import { PhotoAvatar } from "@/components/photos/photo-avatar";
 
 export function AthleteTable({ athletes }: { athletes: AthleteListItem[] }) {
   const [selected, setSelected] = useState<AthleteListItem | null>(null);
@@ -52,14 +52,9 @@ export function AthleteTable({ athletes }: { athletes: AthleteListItem[] }) {
           title="Athletes"
           description="Click an athlete to view medical notes and emergency contacts."
           action={
-            <>
-              <Badge tone="neutral" className="border border-line">
-                <HeartPulse className="mr-1.5 h-3.5 w-3.5 text-rose-500" /> Medical access audited
-              </Badge>
-              <Button size="sm" onClick={openAdd}>
-                <Plus className="h-4 w-4" /> Add athlete
-              </Button>
-            </>
+            <Button size="sm" onClick={openAdd}>
+              <Plus className="h-4 w-4" /> Add athlete
+            </Button>
           }
         />
         {athletes.length === 0 ? (
@@ -88,18 +83,23 @@ export function AthleteTable({ athletes }: { athletes: AthleteListItem[] }) {
                 return (
                   <TR key={a.id}>
                     <TD className="pl-2">
-                      <button
-                        type="button"
-                        onClick={() => openDetail(a)}
-                        className="text-left font-semibold text-charcoal hover:underline"
-                      >
-                        {a.firstName} {a.lastName}
-                      </button>
-                      <p className="text-xs text-stone-400">
-                        {[age !== null ? `Age ${age}` : null, a.gradeLevel ? `Grade ${a.gradeLevel}` : null]
-                          .filter(Boolean)
-                          .join(" - ")}
-                      </p>
+                      <div className="flex items-center gap-3">
+                        <PhotoAvatar name={`${a.firstName} ${a.lastName}`} src={a.photoUrl} size="sm" />
+                        <div className="min-w-0">
+                          <button
+                            type="button"
+                            onClick={() => openDetail(a)}
+                            className="text-left font-semibold text-charcoal hover:underline"
+                          >
+                            {a.firstName} {a.lastName}
+                          </button>
+                          <p className="text-xs text-stone-400">
+                            {[age !== null ? `Age ${age}` : null, a.gradeLevel ? `Grade ${a.gradeLevel}` : null]
+                              .filter(Boolean)
+                              .join(" - ")}
+                          </p>
+                        </div>
+                      </div>
                     </TD>
                     <TD className="text-xs font-medium text-charcoal sm:text-sm">{formatDob(a.dateOfBirth)}</TD>
                     <TD className="text-xs text-stone-600">

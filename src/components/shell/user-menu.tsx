@@ -22,6 +22,7 @@ export interface ShellUser {
   /** Shows the "Manage shifts" entry for program admins / coaches / team managers. */
   isShiftCoordinator?: boolean;
   isProgramStaff?: boolean;
+  isSeatedDirector?: boolean;
 }
 
 export function UserMenu({ user }: { user: ShellUser }) {

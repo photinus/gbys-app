@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { PhotoAvatar } from "@/components/photos/photo-avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -89,8 +90,13 @@ export function RosterTable({
             {rows.map((r) => (
               <TR key={r.registrationId} className="align-top">
                 <TD>
-                  <div className="font-semibold text-charcoal">{r.athleteName}</div>
-                  <div className="text-xs text-stone-500">{r.age !== null ? `Age ${r.age}` : ""}</div>
+                  <div className="flex items-center gap-3">
+                    <PhotoAvatar name={r.athleteName} src={r.photoUrl} size="sm" />
+                    <div className="min-w-0">
+                      <div className="font-semibold text-charcoal">{r.athleteName}</div>
+                      <div className="text-xs text-stone-500">{r.age !== null ? `Age ${r.age}` : ""}</div>
+                    </div>
+                  </div>
                   {r.cancelledAt ? (
                     <div className="mt-1">
                       <Badge tone="danger">Cancelled {formatDate(r.cancelledAt)}</Badge>

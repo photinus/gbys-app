@@ -2,6 +2,7 @@ import { AlertTriangle, Phone, ShieldCheck } from "lucide-react";
 import type { EmergencySheet } from "@/lib/dal/rosters";
 import { formatDateTime, formatDob } from "@/lib/format";
 import { formatPhone } from "@/lib/validation/household";
+import { PhotoAvatar } from "@/components/photos/photo-avatar";
 import { PrintButton } from "./print-button";
 import { RegisterSw } from "@/components/pwa/register-sw";
 
@@ -81,13 +82,16 @@ export function EmergencySheetView({ sheet }: { sheet: EmergencySheet }) {
                 className="break-inside-avoid rounded-2xl border-2 border-charcoal bg-white p-4 sm:p-5"
               >
                 <div className="flex flex-wrap items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <h2 className="break-words text-xl font-extrabold leading-tight">
-                      {a.firstName} {a.lastName}
-                    </h2>
-                    <p className="text-sm text-stone-600">
-                      {a.age !== null ? `Age ${a.age} · ` : ""}DOB {formatDob(a.dateOfBirth)}
-                    </p>
+                  <div className="flex min-w-0 items-center gap-3">
+                    <PhotoAvatar name={`${a.firstName} ${a.lastName}`} src={a.photoUrl} size="lg" />
+                    <div className="min-w-0">
+                      <h2 className="break-words text-xl font-extrabold leading-tight">
+                        {a.firstName} {a.lastName}
+                      </h2>
+                      <p className="text-sm text-stone-600">
+                        {a.age !== null ? `Age ${a.age} · ` : ""}DOB {formatDob(a.dateOfBirth)}
+                      </p>
+                    </div>
                   </div>
                   {medical ? (
                     <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-700 px-3 py-1 text-xs font-bold uppercase tracking-wide text-white print:border print:border-black print:bg-white print:text-black">

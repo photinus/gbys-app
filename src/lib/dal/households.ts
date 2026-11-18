@@ -14,7 +14,8 @@ import {
   type InviteInput,
   type ProfileInput,
 } from "@/lib/validation/household";
-import { DalError, isBoard, type SessionContext } from "./context";
+import { DalError, avatarUrlFor, isBoard, type SessionContext } from "./context";
+import { athletePhotoUrl } from "./photos";
 
 const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -29,6 +30,10 @@ export interface MyProfile {
   email: string;
   phone: string | null;
   smsOptIn: boolean;
+  /** Uploaded profile photo URL, or the provider picture, or null. */
+  avatarUrl: string | null;
+  /** True when the photo was uploaded here (can be removed), false for a provider picture. */
+  avatarUploaded: boolean;
 }
 
 /** Roster row. Deliberately has NO medical notes / emergency contacts. */
@@ -42,10 +47,12 @@ export interface AthleteListItem {
   hasMedicalNotes: boolean;
   relationship: string;
   canRegister: boolean;
+  photoUrl: string | null;
 }
 
 export interface AthleteDetail {
   id: string;
+  photoUrl: string | null;
   firstName: string;
   lastName: string;
   dateOfBirth: string; // YYYY-MM-DD
@@ -130,12 +137,15 @@ export async function getMyProfile(ctx: SessionContext): Promise<MyProfile> {
       email: users.email,
       phone: users.phone,
       smsOptIn: users.smsOptIn,
+      image: users.image,
+      avatarObjectKey: users.avatarObjectKey,
+      avatarUpdatedAt: users.avatarUpdatedAt,
     })
     .from(users)
     .where(and(eq(users.id, ctx.userId), isNull(users.deletedAt)))
     .limit(1);
   if (!u) throw new DalError("NOT_FOUND", "Profile not found.");
-  return u;
+  return { id: u.id, name: u.name, email: u.email, phone: u.phone, smsOptIn: u.smsOptIn, avatarUrl: avatarUrlFor(u), avatarUploaded: !!u.avatarObjectKey };
 }
 
 export async function updateMyProfile(ctx: SessionContext, input: unknown): Promise<MyProfile> {
@@ -172,7 +182,7 @@ export async function updateMyProfile(ctx: SessionContext, input: unknown): Prom
       },
       tx
     );
-    return after;
+    return { ...after, avatarUrl: ctx.image, avatarUploaded: !!ctx.image?.startsWith("/media/avatar/") };
   });
 }
 
@@ -181,7 +191,7 @@ export async function updateMyProfile(ctx: SessionContext, input: unknown): Prom
 // ---------------------------------------------------------------------------
 /** Roster for the current user. NEVER selects medical notes or emergency contacts. */
 export async function listMyAthletes(ctx: SessionContext): Promise<AthleteListItem[]> {
-  return db
+  const rows = await db
     .select({
       id: athletes.id,
       firstName: athletes.firstName,
@@ -193,11 +203,17 @@ export async function listMyAthletes(ctx: SessionContext): Promise<AthleteListIt
       hasMedicalNotes: sql<boolean>`coalesce(length(btrim(${athletes.medicalNotes})) > 0, false)`,
       relationship: householdGuardians.relationship,
       canRegister: householdGuardians.canRegister,
+      photoObjectKey: athletes.photoObjectKey,
+      photoUpdatedAt: athletes.photoUpdatedAt,
     })
     .from(householdGuardians)
     .innerJoin(athletes, eq(athletes.id, householdGuardians.athleteId))
     .where(and(eq(householdGuardians.userId, ctx.userId), isNull(athletes.deletedAt)))
     .orderBy(asc(athletes.firstName), asc(athletes.lastName));
+  return rows.map(({ photoObjectKey, photoUpdatedAt, ...r }) => ({
+    ...r,
+    photoUrl: athletePhotoUrl({ id: r.id, photoObjectKey, photoUpdatedAt }),
+  }));
 }
 
 /** Guardian of the athlete or board. ALWAYS writes a medical.viewed audit row. */
@@ -225,6 +241,7 @@ export async function getAthleteDetail(ctx: SessionContext, athleteId: string): 
 
   return {
     id: a.id,
+    photoUrl: athletePhotoUrl(a),
     firstName: a.firstName,
     lastName: a.lastName,
     dateOfBirth: a.dateOfBirth,

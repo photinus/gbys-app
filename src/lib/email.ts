@@ -1,5 +1,5 @@
 import { Nuntly } from "@nuntly/sdk";
-import { formatDate } from "@/lib/format";
+import { formatDate, formatDateTime } from "@/lib/format";
 
 let client: Nuntly | null = null;
 
@@ -160,6 +160,35 @@ export async function sendComplianceLapseAlertEmail({
         <p>Hi ${escapeHtml(recipientName)},</p>
         <p><strong>${escapeHtml(coachName)}</strong>, a coach in <strong>${escapeHtml(programName)}</strong>, no longer has a current <strong>${escapeHtml(credentialName)}</strong>. It expired on <strong>${escapeHtml(expiredOn)}</strong>, and this credential is required for the program.</p>
         <p>Please follow up with the coach to renew and upload their updated clearance in the GBYS Volunteer Portal before they continue coaching.</p>
+    `),
+  });
+}
+
+/** Notice that a director's vote is requested on an action without a meeting. */
+export async function sendBoardVoteRequestEmail({
+  to,
+  recipientName,
+  motionTitle,
+  closesAt,
+  voteUrl,
+}: {
+  to: string;
+  recipientName: string;
+  motionTitle: string;
+  closesAt: Date;
+  voteUrl: string;
+}) {
+  // Dates are always rendered in America/Los_Angeles (invariant 9).
+  const deadline = formatDateTime(closesAt);
+  return sendEmail({
+    to,
+    subject: `Board vote requested: ${motionTitle}`,
+    html: layout(`
+        <h2>Board action without a meeting</h2>
+        <p>Hi ${escapeHtml(recipientName)},</p>
+        <p>Your vote is requested on <strong>${escapeHtml(motionTitle)}</strong>. Voting closes <strong>${escapeHtml(deadline)}</strong> (Pacific time).</p>
+        <p>An action without a meeting passes only if <strong>every</strong> eligible director votes yes. Any no or abstain vote, or a missing vote at the deadline, means it does not pass. Your vote is final once recorded.</p>
+        ${button(voteUrl, "Review and vote")}
     `),
   });
 }

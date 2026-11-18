@@ -1,4 +1,7 @@
 import {
+  Vote,
+  CalendarClock,
+  Landmark,
   BadgeCheck,
   CalendarCheck,
   CalendarDays,
@@ -40,4 +43,7 @@ export const NAV_ICONS: Record<NavIconKey, LucideIcon> = {
   programs: FolderKanban,
   settings: Settings,
   audit: ScrollText,
+  board: CalendarClock,
+  boardAdmin: Landmark,
+  boardVotes: Vote,
 };

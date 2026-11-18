@@ -50,7 +50,7 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
           <ArrowLeft className="h-3.5 w-3.5" /> All users
         </Link>
         <div className="mt-3 flex items-center gap-4">
-          <UserAvatar name={u.name} size="lg" />
+          <UserAvatar name={u.name} src={u.avatarUrl} size="lg" />
           <div className="min-w-0">
             <h1 className="truncate text-2xl font-bold tracking-tight sm:text-3xl">{u.name}</h1>
             <p className="truncate text-sm text-stone-500">{u.email}</p>

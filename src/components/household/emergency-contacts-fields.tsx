@@ -1,25 +1,48 @@
 "use client";
 
 import { Plus, Trash2 } from "lucide-react";
-import { useRef, useState } from "react";
-import { Button, Input, Label } from "@/components/ui";
+import { useEffect, useRef, useState } from "react";
+import { Button, Input, Label, Select } from "@/components/ui";
 import type { EmergencyContact } from "@/db/schema/household";
 import { formatPhone } from "@/lib/validation/household";
+import { listSavedContactsAction } from "./saved-contacts-action";
 
 const MAX_CONTACTS = 5;
 
 /**
- * Repeatable emergency-contact rows (1-5). Uncontrolled inputs named
+ * Repeatable emergency-contact rows (1-5). Inputs are named
  * ec_name / ec_phone / ec_relationship, read by the server action via FormData.
+ * Each row can be filled from a contact already saved on another of my athletes
+ * ("Use a saved contact"); typing a contact manually always works too.
  */
 export function EmergencyContactsFields({ initial }: { initial?: EmergencyContact[] }) {
   const nextKey = useRef(0);
   const [rows, setRows] = useState(() =>
     (initial && initial.length > 0 ? initial : [{ name: "", phone: "", relationship: "" }]).map((c) => ({
       key: nextKey.current++,
-      ...c,
+      name: c.name,
+      phone: formatPhone(c.phone),
+      relationship: c.relationship,
     }))
   );
+  const [saved, setSaved] = useState<EmergencyContact[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    listSavedContactsAction()
+      .then((res) => {
+        if (!cancelled && res.ok) setSaved(res.data);
+      })
+      .catch(() => {
+        /* the picker is a convenience; manual entry still works */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const patch = (key: number, p: Partial<{ name: string; phone: string; relationship: string }>) =>
+    setRows((r) => r.map((x) => (x.key === key ? { ...x, ...p } : x)));
 
   return (
     <fieldset className="space-y-3">
@@ -53,13 +76,36 @@ export function EmergencyContactsFields({ initial }: { initial?: EmergencyContac
               </button>
             ) : null}
           </div>
+          {saved.length > 0 ? (
+            <div>
+              <Label htmlFor={`ec-saved-${row.key}`}>Use a saved contact</Label>
+              <Select
+                id={`ec-saved-${row.key}`}
+                value=""
+                onChange={(e) => {
+                  const c = saved[Number(e.target.value)];
+                  if (c) patch(row.key, { name: c.name, phone: formatPhone(c.phone), relationship: c.relationship });
+                }}
+                className="bg-white"
+              >
+                <option value="">Choose a saved contact...</option>
+                {saved.map((c, idx) => (
+                  <option key={`${c.name}|${c.phone}`} value={idx}>
+                    {c.name}
+                    {c.relationship ? ` (${c.relationship})` : ""} · {formatPhone(c.phone)}
+                  </option>
+                ))}
+              </Select>
+            </div>
+          ) : null}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <Label htmlFor={`ec-name-${row.key}`}>Name</Label>
               <Input
                 id={`ec-name-${row.key}`}
                 name="ec_name"
-                defaultValue={row.name}
+                value={row.name}
+                onChange={(e) => patch(row.key, { name: e.target.value })}
                 required
                 maxLength={100}
                 className="bg-white"
@@ -70,7 +116,8 @@ export function EmergencyContactsFields({ initial }: { initial?: EmergencyContac
               <Input
                 id={`ec-rel-${row.key}`}
                 name="ec_relationship"
-                defaultValue={row.relationship}
+                value={row.relationship}
+                onChange={(e) => patch(row.key, { relationship: e.target.value })}
                 required
                 maxLength={50}
                 placeholder="e.g. Aunt"
@@ -83,7 +130,8 @@ export function EmergencyContactsFields({ initial }: { initial?: EmergencyContac
                 id={`ec-phone-${row.key}`}
                 name="ec_phone"
                 type="tel"
-                defaultValue={formatPhone(row.phone)}
+                value={row.phone}
+                onChange={(e) => patch(row.key, { phone: e.target.value })}
                 required
                 placeholder="(541) 555-0123"
                 className="bg-white"

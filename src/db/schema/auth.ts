@@ -12,7 +12,10 @@ export const users = pgTable("users", {
   email: text("email").notNull().unique(),
   emailVerified: boolean("email_verified").notNull().default(false),
   emailBounced: boolean("email_bounced").notNull().default(false),
-  image: text("image"),
+  image: text("image"), // provider (e.g. Google) picture URL
+  // Uploaded profile photo (private S3 key, served via /media/avatar/[userId]); wins over `image`.
+  avatarObjectKey: text("avatar_object_key"),
+  avatarUpdatedAt: timestamp("avatar_updated_at", { withTimezone: true }),
   phone: text("phone"),
   smsOptIn: boolean("sms_opt_in").notNull().default(false),
   orgRole: orgRoleEnum("org_role").notNull().default("member"),
