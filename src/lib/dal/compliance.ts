@@ -377,7 +377,7 @@ export async function reviewCredential(
   try {
     await sendCredentialReviewedEmail({
       to: result.ownerEmail,
-      name: result.ownerName,
+      name: result.ownerName || "there",
       credentialName: result.definitionName,
       decision: data.decision,
       notes: data.reviewerNotes || undefined,

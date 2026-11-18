@@ -105,7 +105,7 @@ export function ReviewSheet({
     <Sheet
       open={!!row}
       onClose={onClose}
-      title={row?.volunteerName ?? ""}
+      title={row ? row.volunteerName || row.volunteerEmail : ""}
       subtitle={row ? `${row.volunteerEmail} • ${row.definitionName}` : undefined}
       footer={
         canReview ? (

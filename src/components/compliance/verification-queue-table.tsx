@@ -49,8 +49,8 @@ export function VerificationQueueTable({
               data-testid="queue-row"
             >
               <TD className="pl-2">
-                <div className="font-semibold text-charcoal">{r.volunteerName}</div>
-                <div className="text-xs text-stone-500">{r.volunteerEmail}</div>
+                <div className="font-semibold text-charcoal">{r.volunteerName || r.volunteerEmail}</div>
+                {r.volunteerName ? <div className="text-xs text-stone-500">{r.volunteerEmail}</div> : null}
               </TD>
               <TD className="text-charcoal">{r.definitionName}</TD>
               <TD>
