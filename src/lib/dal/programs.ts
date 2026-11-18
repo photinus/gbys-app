@@ -72,6 +72,8 @@ export interface CredentialOption {
   id: string;
   code: string;
   name: string;
+  /** Archived type that the program already requires (kept visible so it can be unchecked). */
+  archived?: boolean;
 }
 
 function requireBoard(ctx: SessionContext) {
@@ -97,13 +99,36 @@ function isUniqueViolation(err: unknown): boolean {
   return e?.code === "23505" || e?.cause?.code === "23505";
 }
 
-/** Credential definitions for the required-credentials picker. Board only. */
-export async function listCredentialOptions(ctx: SessionContext): Promise<CredentialOption[]> {
+/**
+ * Credential definitions for the required-credentials picker. Board only.
+ * Active types, plus (when `programId` is given) any archived types that program already requires.
+ */
+export async function listCredentialOptions(ctx: SessionContext, programId?: string): Promise<CredentialOption[]> {
   requireBoard(ctx);
-  return db
-    .select({ id: credentialDefinitions.id, code: credentialDefinitions.code, name: credentialDefinitions.name })
+  let alreadyRequired: string[] = [];
+  if (programId) {
+    const parsed = programIdSchema.safeParse(programId);
+    if (parsed.success) {
+      const [p] = await db
+        .select({ ids: programs.requiredCredentialIds })
+        .from(programs)
+        .where(eq(programs.id, parsed.data))
+        .limit(1);
+      alreadyRequired = p?.ids ?? [];
+    }
+  }
+  const rows = await db
+    .select({
+      id: credentialDefinitions.id,
+      code: credentialDefinitions.code,
+      name: credentialDefinitions.name,
+      isActive: credentialDefinitions.isActive,
+    })
     .from(credentialDefinitions)
     .orderBy(asc(credentialDefinitions.name));
+  return rows
+    .filter((r) => r.isActive || alreadyRequired.includes(r.id))
+    .map(({ isActive, ...r }) => (isActive ? r : { ...r, archived: true }));
 }
 
 /** All non-deleted programs (including inactive) with role counts. */
@@ -145,13 +170,17 @@ export async function getProgramAdmin(ctx: SessionContext, id: string): Promise<
   return row;
 }
 
-async function assertCredentialIdsExist(ids: string[]) {
+/** `keepArchived`: archived ids the program already requires (may stay, but archived types can't be newly added). */
+async function assertCredentialIdsExist(ids: string[], keepArchived: string[] = []) {
   if (ids.length === 0) return;
   const found = await db
-    .select({ id: credentialDefinitions.id })
+    .select({ id: credentialDefinitions.id, isActive: credentialDefinitions.isActive })
     .from(credentialDefinitions)
     .where(inArray(credentialDefinitions.id, ids));
   if (found.length !== ids.length) throw new DalError("INVALID", "One of the selected credentials does not exist.");
+  if (found.some((f) => !f.isActive && !keepArchived.includes(f.id))) {
+    throw new DalError("INVALID", "An archived credential type can't be newly required.");
+  }
 }
 
 export async function createProgram(ctx: SessionContext, input: CreateProgramInput): Promise<{ id: string }> {
@@ -198,7 +227,12 @@ export async function updateProgram(ctx: SessionContext, id: string, input: Upda
   const programId = programIdSchema.safeParse(id);
   if (!programId.success) throw new DalError("NOT_FOUND", "Program not found.");
   const data = updateProgramSchema.parse(input);
-  await assertCredentialIdsExist(data.requiredCredentialIds);
+  const [current] = await db
+    .select({ ids: programs.requiredCredentialIds })
+    .from(programs)
+    .where(eq(programs.id, programId.data))
+    .limit(1);
+  await assertCredentialIdsExist(data.requiredCredentialIds, current?.ids ?? []);
 
   try {
     await db.transaction(async (tx) => {

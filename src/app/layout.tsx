@@ -1,16 +1,19 @@
 import type { Metadata, Viewport } from "next";
+import { connection } from "next/server";
 import "@fontsource-variable/plus-jakarta-sans";
 import "./globals.css";
 import { ToastProvider } from "@/components/ui/toast";
+import { getBranding } from "@/lib/dal/settings";
 
-export const metadata: Metadata = {
-  title: {
-    default: "Gold Beach Youth Sports",
-    template: "%s | Gold Beach Youth Sports",
-  },
-  description:
-    "Households, volunteer credentials and program operations for Gold Beach Youth Sports, a volunteer-run 501(c)(3) in Gold Beach, Oregon.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  // Branding is editable at runtime: never bake it in at build time.
+  await connection();
+  const { orgName, shortName } = await getBranding();
+  return {
+    title: { default: orgName, template: `%s · ${shortName}` },
+    description: `Households, volunteer credentials and program operations for ${orgName}.`,
+  };
+}
 
 export const viewport: Viewport = {
   width: "device-width",

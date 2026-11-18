@@ -26,7 +26,10 @@ export function CredentialPicker({
               defaultChecked={defaultSelected.includes(o.id)}
               className="h-4 w-4 accent-charcoal"
             />
-            <span className="text-sm font-medium text-charcoal">{o.name}</span>
+            <span className="text-sm font-medium text-charcoal">
+              {o.name}
+              {o.archived ? <span className="ml-2 text-xs font-semibold text-stone-400">(archived)</span> : null}
+            </span>
           </label>
         ))}
         {options.length === 0 ? <p className="text-xs text-stone-400">No credential definitions exist yet.</p> : null}

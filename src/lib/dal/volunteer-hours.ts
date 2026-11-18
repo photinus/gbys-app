@@ -5,7 +5,8 @@ import { db } from "@/db";
 import { programs, users, volunteerLogs } from "@/db/schema";
 import { writeAudit } from "@/lib/audit";
 import { laDateInputToUtc, utcToLaDateInput } from "@/lib/format";
-import { currentInKindRateCents, inKindValueCents } from "@/lib/grant-rate";
+import { inKindValueCents } from "@/lib/grant-rate";
+import { getInKindRateCents } from "./settings";
 import type { VerificationMethod, VolunteerCategory } from "@/lib/volunteer-categories";
 import {
   assertDateInWindow,
@@ -143,7 +144,7 @@ export async function logMyHours(
       description: data.description,
       verificationMethod: "self_reported",
       createdByUserId: ctx.userId,
-      inKindRateCents: currentInKindRateCents(),
+      inKindRateCents: await getInKindRateCents(),
     })
     .returning({ id: volunteerLogs.id });
 
@@ -248,7 +249,7 @@ export async function getMyHoursSummary(
         lt(volunteerLogs.activityDate, end)
       )
     );
-  const fallbackRate = currentInKindRateCents();
+  const fallbackRate = await getInKindRateCents();
   let verifiedMinutes = 0;
   let verifiedValueCents = 0;
   let pendingMinutes = 0;
@@ -444,7 +445,7 @@ export async function logHoursForVolunteer(
       createdByUserId: ctx.userId,
       approvedByUserId: ctx.userId,
       approvedAt: now,
-      inKindRateCents: currentInKindRateCents(),
+      inKindRateCents: await getInKindRateCents(),
     })
     .returning({ id: volunteerLogs.id });
 

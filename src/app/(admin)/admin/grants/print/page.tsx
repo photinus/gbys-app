@@ -4,6 +4,7 @@ import { CategoryTable, MonthTable, ProgramTable, VolunteerTable, rateStatement 
 import { PrintButton } from "@/components/grants/print-button";
 import { isBoard, requireSession } from "@/lib/dal/context";
 import { getGrantReport, recordGrantExport } from "@/lib/dal/grants";
+import { getBranding } from "@/lib/dal/settings";
 import { listActivePrograms } from "@/lib/dal/programs";
 import { formatCents, formatDate, formatDateTime } from "@/lib/format";
 import { parseGrantFilters } from "@/lib/validation/grants";
@@ -26,9 +27,10 @@ export default async function GrantPrintPage({
 
   const parsed = parseGrantFilters(await searchParams);
   const { filters } = parsed;
-  const [programs, report] = await Promise.all([
+  const [programs, report, branding] = await Promise.all([
     listActivePrograms(ctx),
     getGrantReport(ctx, filters, { audit: false }),
+    getBranding(),
   ]);
   await recordGrantExport(ctx, filters, { format: "print", rowCount: report.totals.entries });
 
@@ -62,7 +64,10 @@ export default async function GrantPrintPage({
       ) : null}
 
       <header className="border-b border-line pb-4">
-        <h1 className="text-2xl font-bold tracking-tight">Gold Beach Youth Sports (501(c)(3))</h1>
+        <h1 className="text-2xl font-bold tracking-tight">
+          {branding.orgName} ({branding.legalDesignation})
+        </h1>
+        {branding.ein ? <p className="text-sm text-stone-600">EIN {branding.ein}</p> : null}
         <p className="mt-0.5 text-lg font-semibold text-stone-700">In-kind volunteer hours summary</p>
         <p className="mt-1 text-sm text-stone-600">
           {ymdLabel(filters.from)} to {ymdLabel(filters.to)} (Pacific time, inclusive)
@@ -109,7 +114,7 @@ export default async function GrantPrintPage({
       </section>
 
       <footer className="border-t border-line pt-3 text-xs text-stone-500">
-        Generated {formatDateTime(new Date())} (Pacific time) by {ctx.name}. Source: GBYS volunteer ledger; deleted entries excluded.
+        Generated {formatDateTime(new Date())} (Pacific time) by {ctx.name}. Source: {branding.shortName} volunteer ledger; deleted entries excluded.
       </footer>
     </div>
   );

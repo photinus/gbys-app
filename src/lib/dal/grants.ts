@@ -5,7 +5,8 @@ import { db } from "@/db";
 import { programs, users, volunteerLogs } from "@/db/schema";
 import { writeAudit } from "@/lib/audit";
 import { utcToLaDateInput } from "@/lib/format";
-import { currentInKindRateCents, inKindValueCents } from "@/lib/grant-rate";
+import { inKindValueCents } from "@/lib/grant-rate";
+import { getInKindRateCents } from "./settings";
 import { grantDateBounds, type GrantFilters } from "@/lib/validation/grants";
 import type { VerificationMethod, VolunteerCategory } from "@/lib/volunteer-categories";
 import { DalError, isBoard, type SessionContext } from "./context";
@@ -86,7 +87,7 @@ function buildWhere(f: GrantFilters): SQL {
 
 async function fetchRows(f: GrantFilters): Promise<GrantLedgerRow[]> {
   const approver = alias(users, "approver");
-  const currentRate = currentInKindRateCents();
+  const currentRate = await getInKindRateCents();
   const rows = await db
     .select({
       id: volunteerLogs.id,
@@ -144,7 +145,7 @@ const byMinutesDesc = (a: GrantBucket, b: GrantBucket) =>
   b.minutes - a.minutes || a.label.localeCompare(b.label);
 
 /** Pure aggregation over ledger rows (exported for tests). Every total is a sum of `valueCents` / `minutes` of the same rows the CSV lists. */
-export function aggregateGrantRows(rows: GrantLedgerRow[]): GrantReport {
+export function aggregateGrantRows(rows: GrantLedgerRow[], currentRateCents: number): GrantReport {
   const vol = new Map<string, GrantVolunteerBucket>();
   for (const r of rows) {
     const v =
@@ -178,7 +179,7 @@ export function aggregateGrantRows(rows: GrantLedgerRow[]): GrantReport {
     ),
     rates: [...new Set(rows.map((r) => r.rateCents))].sort((a, b) => a - b),
     fallbackRateEntries: rows.filter((r) => r.rateIsFallback).length,
-    currentRateCents: currentInKindRateCents(),
+    currentRateCents,
   };
 }
 
@@ -193,7 +194,7 @@ export async function getGrantReport(
   opts: { audit?: boolean } = {},
 ): Promise<GrantReport> {
   requireBoard(ctx);
-  const report = aggregateGrantRows(await fetchRows(filters));
+  const report = aggregateGrantRows(await fetchRows(filters), await getInKindRateCents());
   if (opts.audit !== false) {
     await writeAudit({
       actorUserId: ctx.userId,

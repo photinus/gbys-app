@@ -78,7 +78,18 @@ function addMonthsLa(from: Date, months: number): Date {
 
 export async function listCredentialDefinitions(ctx: SessionContext): Promise<CredentialDefinitionRow[]> {
   void ctx; // any signed-in user may see the (non-sensitive) definition catalog
-  return db.select().from(credentialDefinitions).orderBy(asc(credentialDefinitions.name));
+  // Active types only: archived types can't be newly submitted (existing credentials still list via joins).
+  return db
+    .select({
+      id: credentialDefinitions.id,
+      code: credentialDefinitions.code,
+      name: credentialDefinitions.name,
+      description: credentialDefinitions.description,
+      defaultValidityMonths: credentialDefinitions.defaultValidityMonths,
+    })
+    .from(credentialDefinitions)
+    .where(eq(credentialDefinitions.isActive, true))
+    .orderBy(asc(credentialDefinitions.name));
 }
 
 export async function listMyCredentials(ctx: SessionContext): Promise<MyCredentialRow[]> {
@@ -111,11 +122,12 @@ export async function createProofUploadUrl(
 ): Promise<{ uploadUrl: string; objectKey: string }> {
   const data = uploadRequestSchema.parse(input);
   const [def] = await db
-    .select({ id: credentialDefinitions.id })
+    .select({ id: credentialDefinitions.id, isActive: credentialDefinitions.isActive })
     .from(credentialDefinitions)
     .where(eq(credentialDefinitions.id, data.definitionId))
     .limit(1);
   if (!def) throw new DalError("NOT_FOUND", "Unknown credential type.");
+  if (!def.isActive) throw new DalError("INVALID", "That credential type is no longer accepted.");
 
   return getCredentialUploadUrl({
     userId: ctx.userId,
@@ -142,6 +154,7 @@ export async function submitCredential(
     .where(eq(credentialDefinitions.id, data.definitionId))
     .limit(1);
   if (!def) throw new DalError("NOT_FOUND", "Unknown credential type.");
+  if (!def.isActive) throw new DalError("INVALID", "That credential type is no longer accepted.");
 
   const expiresAt = data.expiresAt ?? addMonthsLa(data.issuedAt, def.defaultValidityMonths);
 
