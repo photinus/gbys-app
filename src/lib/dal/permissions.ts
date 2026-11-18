@@ -1,5 +1,8 @@
 import "server-only";
-import { hasProgramRole, isBoard, type SessionContext } from "./context";
+import { and, eq, isNull } from "drizzle-orm";
+import { db, type DbOrTx } from "@/db";
+import { programs } from "@/db/schema";
+import { DalError, hasProgramRole, isBoard, type SessionContext } from "./context";
 
 /**
  * Shared authorization rules for Sprint 2. Every DAL function must still call
@@ -71,4 +74,22 @@ export function isProgramStaff(ctx: SessionContext): boolean {
 /** Org role changes (granting/revoking board or super admin) are super-admin only. */
 export function isSuperAdmin(ctx: SessionContext): boolean {
   return ctx.orgRole === "super_admin";
+}
+
+/**
+ * Inactive programs are reachable by the board only. Non-board staff get a
+ * NOT_FOUND for an inactive (or missing) program, so existence stays hidden.
+ */
+export async function assertProgramReachable(
+  ctx: SessionContext,
+  programId: string,
+  tx: DbOrTx = db
+): Promise<void> {
+  if (isBoard(ctx)) return;
+  const [p] = await tx
+    .select({ isActive: programs.isActive })
+    .from(programs)
+    .where(and(eq(programs.id, programId), isNull(programs.deletedAt)))
+    .limit(1);
+  if (!p?.isActive) throw new DalError("NOT_FOUND", "Program not found.");
 }

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui";
+import { InactiveProgramBanner } from "@/components/programs/inactive-banner";
 import { RolesManager } from "@/components/volunteer-roles/roles-manager";
 import type { RoleActions } from "@/components/volunteer-roles/types";
 import { DalError, isBoard, requireSession } from "@/lib/dal/context";
@@ -58,6 +59,7 @@ export default async function ProgramRolesPage({ params }: { params: Promise<{ s
 
   return (
     <div className="mx-auto w-full max-w-5xl space-y-6">
+      {!program.isActive ? <InactiveProgramBanner /> : null}
       <div className="min-w-0">
         <Link href={`/programs/${program.slug}`} className="text-xs font-semibold text-stone-500 hover:text-charcoal">
           {program.name}

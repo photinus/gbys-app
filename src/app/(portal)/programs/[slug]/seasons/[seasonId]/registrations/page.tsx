@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { ShieldAlert } from "lucide-react";
 import { buttonStyles } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { InactiveProgramBanner } from "@/components/programs/inactive-banner";
 import { RosterKpiRow } from "@/components/rosters/roster-kpis";
 import { RosterTable } from "@/components/rosters/roster-table";
 import { DalError, requireSession } from "@/lib/dal/context";
@@ -37,6 +38,7 @@ export default async function SeasonRegistrationsPage({
 
   return (
     <div className="space-y-6">
+      {!header.programActive ? <InactiveProgramBanner /> : null}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0">
           <Link href={`/programs/${slug}`} className="text-xs font-semibold text-stone-500 hover:text-charcoal">

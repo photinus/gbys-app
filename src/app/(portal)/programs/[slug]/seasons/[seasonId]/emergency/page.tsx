@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { InactiveProgramBanner } from "@/components/programs/inactive-banner";
 import { EmergencySheetView } from "@/components/rosters/emergency-sheet";
 import { DalError, requireSession } from "@/lib/dal/context";
 import { getEmergencySheet } from "@/lib/dal/rosters";
@@ -26,5 +27,10 @@ export default async function EmergencySheetPage({
   }
   if (sheet.header.programSlug !== slug) notFound();
 
-  return <EmergencySheetView sheet={sheet} />;
+  return (
+    <>
+      {!sheet.header.programActive ? <InactiveProgramBanner className="mb-4" /> : null}
+      <EmergencySheetView sheet={sheet} />
+    </>
+  );
 }

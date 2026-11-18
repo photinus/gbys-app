@@ -22,7 +22,7 @@ import {
   type RosterFilter,
 } from "@/lib/validation/rosters";
 import { DalError, isBoard, type SessionContext } from "./context";
-import { PROGRAM_STAFF_ROLES, canManageProgram, canViewRoster } from "./permissions";
+import { PROGRAM_STAFF_ROLES, assertProgramReachable, canManageProgram, canViewRoster } from "./permissions";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const REFUND_WARNING = "Record a refund outside the app (Sprint 3b adds Stripe refunds).";
@@ -41,6 +41,7 @@ export interface SeasonHeader {
   programId: string;
   programName: string;
   programSlug: string;
+  programActive: boolean;
   feeCents: number;
   canManage: boolean;
   isBoard: boolean;
@@ -112,6 +113,7 @@ async function loadSeasonHeader(ctx: SessionContext, seasonId: string): Promise<
       programId: programs.id,
       programName: programs.name,
       programSlug: programs.slug,
+      programActive: programs.isActive,
       feeCents: seasons.baseFeeCents,
       form: seasons.customFormSchema,
     })
@@ -121,6 +123,8 @@ async function loadSeasonHeader(ctx: SessionContext, seasonId: string): Promise<
     .limit(1);
   // Hide existence from people who cannot see the roster.
   if (!s || !canViewRoster(ctx, s.programId)) throw new DalError("NOT_FOUND", "Season not found.");
+  // Inactive programs are board-only.
+  if (!s.programActive && !isBoard(ctx)) throw new DalError("NOT_FOUND", "Season not found.");
   const { form, ...rest } = s;
   return {
     ...rest,
@@ -290,6 +294,7 @@ export async function recordOfflinePayment(
     if (!canManageProgram(ctx, row.programId)) {
       throw new DalError("FORBIDDEN", "You do not have permission to record payments.");
     }
+    await assertProgramReachable(ctx, row.programId, tx);
     if (row.deletedAt) throw new DalError("INVALID", "This registration was cancelled.");
     if (row.paymentStatus !== "unpaid") {
       throw new DalError("INVALID", "This registration is not awaiting payment.");
@@ -413,6 +418,7 @@ export async function cancelRegistration(
     if (!canManageProgram(ctx, row.programId)) {
       throw new DalError("FORBIDDEN", "You do not have permission to cancel registrations.");
     }
+    await assertProgramReachable(ctx, row.programId, tx);
     if (row.deletedAt) throw new DalError("INVALID", "This registration is already cancelled.");
     const wasPaid = row.paymentStatus !== "unpaid";
     await tx

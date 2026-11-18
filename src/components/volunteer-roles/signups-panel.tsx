@@ -91,7 +91,7 @@ export function SignupsPanel({
 }
 
 function SignupCard({ row: r, showProgram, onAction }: { row: ReviewRow; showProgram?: boolean; onAction: (k: "approve" | "decline" | "end") => void }) {
-  const selfBlocked = r.isSelf && !!r.grantsProgramRole;
+  const selfBlocked = r.selfApprovalBlocked;
   return (
     <li data-testid="signup-row" data-status={r.status} className="rounded-2xl border border-line bg-white p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">

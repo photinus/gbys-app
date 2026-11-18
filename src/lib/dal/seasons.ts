@@ -17,7 +17,7 @@ import {
   type WaiverVersionInput,
 } from "@/lib/validation/seasons";
 import { DalError, isBoard, type SessionContext } from "./context";
-import { canManageProgram, canViewRoster, staffProgramIds } from "./permissions";
+import { assertProgramReachable, canManageProgram, canViewRoster, staffProgramIds } from "./permissions";
 
 const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -40,6 +40,7 @@ export interface StaffProgramRow {
   sport: string;
   description: string | null;
   isIndependentPartner: boolean;
+  isActive: boolean;
   canManage: boolean;
   openSeasons: number;
   liveRegistrations: number;
@@ -79,7 +80,7 @@ export interface WaiverVersionRow {
 }
 
 export interface SeasonEditorData {
-  program: { id: string; slug: string; name: string };
+  program: { id: string; slug: string; name: string; isActive: boolean };
   canManage: boolean;
   canOrgWideWaiver: boolean;
   season: {
@@ -114,7 +115,7 @@ export interface SeasonFormPreview {
 // Program hub
 // ---------------------------------------------------------------------------
 
-/** Programs where ctx may view the roster (board sees all active programs). */
+/** Programs where ctx may view the roster. Board sees all programs (inactive ones sort last); staff only active ones. */
 export async function listMyStaffPrograms(ctx: SessionContext): Promise<StaffProgramRow[]> {
   const ids = staffProgramIds(ctx);
   if (ids !== "all" && ids.length === 0) return [];
@@ -128,10 +129,11 @@ export async function listMyStaffPrograms(ctx: SessionContext): Promise<StaffPro
       sport: programs.sport,
       description: programs.description,
       isIndependentPartner: programs.isIndependentPartner,
+      isActive: programs.isActive,
     })
     .from(programs)
-    .where(and(isNull(programs.deletedAt), eq(programs.isActive, true), scope))
-    .orderBy(asc(programs.name));
+    .where(and(isNull(programs.deletedAt), isBoard(ctx) ? sql`true` : eq(programs.isActive, true), scope))
+    .orderBy(desc(programs.isActive), asc(programs.name));
   if (rows.length === 0) return [];
 
   const seasonRows = await db
@@ -161,7 +163,7 @@ export async function listMyStaffPrograms(ctx: SessionContext): Promise<StaffPro
   }));
 }
 
-async function loadProgramBySlug(slug: string) {
+async function loadProgramBySlug(ctx: SessionContext, slug: string) {
   const [program] = await db
     .select({
       id: programs.id,
@@ -174,12 +176,12 @@ async function loadProgramBySlug(slug: string) {
     .from(programs)
     .where(and(eq(programs.slug, slug), isNull(programs.deletedAt)))
     .limit(1);
-  if (!program) throw new DalError("NOT_FOUND", "Program not found.");
+  if (!program || (!program.isActive && !isBoard(ctx))) throw new DalError("NOT_FOUND", "Program not found.");
   return program;
 }
 
 export async function getProgramHub(ctx: SessionContext, slug: string): Promise<ProgramHub> {
-  const program = await loadProgramBySlug(slug);
+  const program = await loadProgramBySlug(ctx, slug);
   if (!canViewRoster(ctx, program.id)) throw forbidden();
 
   const rows = await db
@@ -221,6 +223,7 @@ export async function getProgramHub(ctx: SessionContext, slug: string): Promise<
 export async function listWaiverVersions(ctx: SessionContext, programId: string): Promise<WaiverVersionRow[]> {
   if (!uuidRe.test(programId)) throw new DalError("NOT_FOUND", "Program not found.");
   if (!canViewRoster(ctx, programId)) throw forbidden();
+  await assertProgramReachable(ctx, programId);
   return db
     .select({
       id: waiverVersions.id,
@@ -252,6 +255,7 @@ export async function createWaiverVersion(
 
   const data = parseInput(waiverVersionInputSchema, input);
   if (data.programId) {
+    await assertProgramReachable(ctx, data.programId);
     const [p] = await db
       .select({ id: programs.id })
       .from(programs)
@@ -361,6 +365,7 @@ export async function createSeason(
 ): Promise<{ id: string }> {
   if (!uuidRe.test(programId)) throw new DalError("NOT_FOUND", "Program not found.");
   if (!canManageProgram(ctx, programId)) throw forbidden();
+  await assertProgramReachable(ctx, programId);
   const data = parseInput(seasonInputSchema, input);
   const values = seasonValues(data);
 
@@ -403,6 +408,7 @@ export async function updateSeason(ctx: SessionContext, seasonId: string, input:
     .limit(1);
   if (!found) throw new DalError("NOT_FOUND", "Season not found.");
   if (!canManageProgram(ctx, found.programId)) throw forbidden();
+  await assertProgramReachable(ctx, found.programId);
 
   const data = parseInput(seasonInputSchema, input);
   const values = seasonValues(data);
@@ -491,7 +497,7 @@ export async function getSeasonForEdit(
   slug: string,
   seasonId: string
 ): Promise<SeasonEditorData> {
-  const program = await loadProgramBySlug(slug);
+  const program = await loadProgramBySlug(ctx, slug);
   if (!canViewRoster(ctx, program.id)) throw forbidden();
   if (!uuidRe.test(seasonId)) throw new DalError("NOT_FOUND", "Season not found.");
   const [s] = await db
@@ -508,7 +514,7 @@ export async function getSeasonForEdit(
   const waivers = await listWaiverVersions(ctx, program.id);
 
   return {
-    program: { id: program.id, slug: program.slug, name: program.name },
+    program: { id: program.id, slug: program.slug, name: program.name, isActive: program.isActive },
     canManage: canManageProgram(ctx, program.id),
     canOrgWideWaiver: isBoard(ctx),
     season: {
@@ -534,10 +540,10 @@ export async function getSeasonForEdit(
 
 /** Data for the "new season" page (managers only). */
 export async function getNewSeasonContext(ctx: SessionContext, slug: string) {
-  const program = await loadProgramBySlug(slug);
+  const program = await loadProgramBySlug(ctx, slug);
   if (!canManageProgram(ctx, program.id)) throw forbidden();
   return {
-    program: { id: program.id, slug: program.slug, name: program.name },
+    program: { id: program.id, slug: program.slug, name: program.name, isActive: program.isActive },
     canOrgWideWaiver: isBoard(ctx),
     waiverVersions: await listWaiverVersions(ctx, program.id),
   };
@@ -563,6 +569,7 @@ export async function previewSeasonForm(ctx: SessionContext, seasonId: string): 
     .limit(1);
   if (!s) throw new DalError("NOT_FOUND", "Season not found.");
   if (!canViewRoster(ctx, s.programId)) throw forbidden();
+  await assertProgramReachable(ctx, s.programId);
   return {
     seasonId: s.id,
     name: s.name,

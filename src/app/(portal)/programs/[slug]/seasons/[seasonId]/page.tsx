@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { InactiveProgramBanner } from "@/components/programs/inactive-banner";
 import { SeasonEditor } from "@/components/seasons/season-editor";
 import { SeasonReadOnly } from "@/components/seasons/season-readonly";
 import { SeasonStatusBadge } from "@/components/seasons/season-status-badge";
@@ -25,6 +26,7 @@ export default async function SeasonPage({ params }: { params: Promise<{ slug: s
 
   return (
     <div className="mx-auto w-full max-w-5xl space-y-6">
+      {!data.program.isActive ? <InactiveProgramBanner /> : null}
       <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
         <div className="min-w-0">
           <Link href={base} className="text-xs font-semibold text-stone-500 hover:text-charcoal">
