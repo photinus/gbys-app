@@ -1,4 +1,5 @@
 import {
+  BadgeCheck,
   CalendarCheck,
   CalendarDays,
   ClipboardCheck,
@@ -14,6 +15,7 @@ import {
   ShieldCheck,
   Trophy,
   UserCog,
+  UserRoundCheck,
   Users,
   type LucideIcon,
 } from "lucide-react";
@@ -26,6 +28,8 @@ export const NAV_ICONS: Record<NavIconKey, LucideIcon> = {
   registrations: ClipboardList,
   programHub: Trophy,
   shifts: CalendarDays,
+  roles: BadgeCheck,
+  volunteerRoles: UserRoundCheck,
   hours: Clock,
   checkin: CalendarCheck,
   overview: LayoutDashboard,

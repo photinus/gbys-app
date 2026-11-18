@@ -2,7 +2,7 @@ import "server-only";
 import { and, asc, desc, eq, gte, isNull, lt, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { db } from "@/db";
-import { programs, users, volunteerLogs } from "@/db/schema";
+import { programs, users, volunteerLogs, volunteerRoleAssignments, volunteerRoles } from "@/db/schema";
 import { writeAudit } from "@/lib/audit";
 import { laDateInputToUtc, utcToLaDateInput } from "@/lib/format";
 import { inKindValueCents } from "@/lib/grant-rate";
@@ -18,6 +18,7 @@ import {
   type LogHoursInput,
 } from "@/lib/validation/hours";
 import { DalError, isBoard, type SessionContext } from "./context";
+import { getTermBounds } from "./volunteer-role-shared";
 
 /*
  * Volunteer hours ledger (invariant 7). volunteer_logs rows are immutable: this module only ever
@@ -46,6 +47,9 @@ export interface HoursEntryRow {
   enteredByOther: boolean;
   createdAt: Date;
   shiftId: string | null;
+  /** Volunteer role this time was logged against (null = none). */
+  roleAssignmentId: string | null;
+  roleName: string | null;
   /** Set only on rejected/removed rows. */
   deletedAt: Date | null;
   deletionReason: string | null;
@@ -119,6 +123,46 @@ async function assertProgramUsable(programId: string | null) {
   if (!p) throw new DalError("INVALID", "Choose an active program.");
 }
 
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+/**
+ * Validates an optional role assignment for a ledger entry and returns the program it forces.
+ * Must run inside the transaction that inserts the row; the assignment is locked FOR SHARE so
+ * it cannot be ended between this check and the insert.
+ */
+async function resolveAssignmentForLog(
+  tx: Tx,
+  volunteerUserId: string,
+  assignmentId: string,
+  activityDate: string
+): Promise<{ programId: string | null }> {
+  const [a] = await tx
+    .select({
+      userId: volunteerRoleAssignments.userId,
+      status: volunteerRoleAssignments.status,
+      seasonId: volunteerRoleAssignments.seasonId,
+      year: volunteerRoleAssignments.year,
+      programId: volunteerRoles.programId,
+    })
+    .from(volunteerRoleAssignments)
+    .innerJoin(volunteerRoles, eq(volunteerRoles.id, volunteerRoleAssignments.roleId))
+    .where(eq(volunteerRoleAssignments.id, assignmentId))
+    .for("share", { of: volunteerRoleAssignments })
+    .limit(1);
+  if (!a || a.userId !== volunteerUserId) {
+    throw new DalError("INVALID", "Choose one of the volunteer's active roles, or leave the role blank.");
+  }
+  if (a.status !== "active") {
+    throw new DalError("INVALID", "That volunteer role is not active, so hours cannot be logged against it.");
+  }
+  const bounds = await getTermBounds({ seasonId: a.seasonId, year: a.year }, tx);
+  const at = laDateInputToUtc(activityDate, false);
+  if ((bounds.start && at < bounds.start) || (bounds.end && at >= bounds.end)) {
+    throw new DalError("INVALID", `That date is outside the role's term (${bounds.label}). Pick a date within it.`);
+  }
+  return { programId: a.programId };
+}
+
 // ---------------------------------------------------------------------------
 // Member
 // ---------------------------------------------------------------------------
@@ -131,36 +175,50 @@ export async function logMyHours(
   const data = parseOrInvalid(logHoursSchema, input);
   const windowError = assertDateInWindow(data.activityDate, now);
   if (windowError) throw new DalError("INVALID", windowError);
-  await assertProgramUsable(data.programId);
+  const rate = await getInKindRateCents();
 
-  const [row] = await db
-    .insert(volunteerLogs)
-    .values({
-      userId: ctx.userId,
-      programId: data.programId,
-      category: data.category,
-      activityDate: laDateInputToUtc(data.activityDate, false),
-      durationMinutes: data.durationMinutes,
-      description: data.description,
-      verificationMethod: "self_reported",
-      createdByUserId: ctx.userId,
-      inKindRateCents: await getInKindRateCents(),
-    })
-    .returning({ id: volunteerLogs.id });
+  return db.transaction(async (tx) => {
+    let programId = data.programId;
+    const assignmentId = data.volunteerRoleAssignmentId ?? null;
+    if (assignmentId) {
+      programId = (await resolveAssignmentForLog(tx, ctx.userId, assignmentId, data.activityDate)).programId;
+    }
+    await assertProgramUsable(programId);
 
-  await writeAudit({
-    actorUserId: ctx.userId,
-    action: "hours.logged",
-    targetType: "volunteer_log",
-    targetId: row.id,
-    metadata: {
-      programId: data.programId,
-      category: data.category,
-      durationMinutes: data.durationMinutes,
-      activityDate: data.activityDate,
-    },
+    const [row] = await tx
+      .insert(volunteerLogs)
+      .values({
+        userId: ctx.userId,
+        programId,
+        volunteerRoleAssignmentId: assignmentId,
+        category: data.category,
+        activityDate: laDateInputToUtc(data.activityDate, false),
+        durationMinutes: data.durationMinutes,
+        description: data.description,
+        verificationMethod: "self_reported",
+        createdByUserId: ctx.userId,
+        inKindRateCents: rate,
+      })
+      .returning({ id: volunteerLogs.id });
+
+    await writeAudit(
+      {
+        actorUserId: ctx.userId,
+        action: "hours.logged",
+        targetType: "volunteer_log",
+        targetId: row.id,
+        metadata: {
+          programId,
+          category: data.category,
+          durationMinutes: data.durationMinutes,
+          activityDate: data.activityDate,
+          ...(assignmentId ? { volunteerRoleAssignmentId: assignmentId } : {}),
+        },
+      },
+      tx
+    );
+    return { id: row.id };
   });
-  return { id: row.id };
 }
 
 const approver = alias(users, "approver");
@@ -194,6 +252,8 @@ export async function listMyHours(
       createdByUserId: volunteerLogs.createdByUserId,
       createdAt: volunteerLogs.createdAt,
       shiftId: volunteerLogs.shiftId,
+      roleAssignmentId: volunteerLogs.volunteerRoleAssignmentId,
+      roleName: volunteerRoles.name,
       deletedAt: volunteerLogs.deletedAt,
       deletedByUserId: volunteerLogs.deletedByUserId,
       deletionReason: volunteerLogs.deletionReason,
@@ -203,6 +263,11 @@ export async function listMyHours(
     .leftJoin(programs, eq(programs.id, volunteerLogs.programId))
     .leftJoin(approver, eq(approver.id, volunteerLogs.approvedByUserId))
     .leftJoin(deleter, eq(deleter.id, volunteerLogs.deletedByUserId))
+    .leftJoin(
+      volunteerRoleAssignments,
+      eq(volunteerRoleAssignments.id, volunteerLogs.volunteerRoleAssignmentId)
+    )
+    .leftJoin(volunteerRoles, eq(volunteerRoles.id, volunteerRoleAssignments.roleId))
     .where(
       and(
         eq(volunteerLogs.userId, ctx.userId),
@@ -415,7 +480,6 @@ export async function logHoursForVolunteer(
   const data = parseOrInvalid(logHoursForVolunteerSchema, input);
   const windowError = assertDateInWindow(data.activityDate, now);
   if (windowError) throw new DalError("INVALID", windowError);
-  await assertProgramUsable(data.programId);
 
   const [target] = await db
     .select({ id: users.id })
@@ -432,35 +496,51 @@ export async function logHoursForVolunteer(
     );
   }
 
-  const [row] = await db
-    .insert(volunteerLogs)
-    .values({
-      userId: target.id,
-      programId: data.programId,
-      category: data.category,
-      activityDate: laDateInputToUtc(data.activityDate, false),
-      durationMinutes: data.durationMinutes,
-      description: data.description,
-      verificationMethod: "admin_approved",
-      createdByUserId: ctx.userId,
-      approvedByUserId: ctx.userId,
-      approvedAt: now,
-      inKindRateCents: await getInKindRateCents(),
-    })
-    .returning({ id: volunteerLogs.id });
+  const rate = await getInKindRateCents();
 
-  await writeAudit({
-    actorUserId: ctx.userId,
-    action: "hours.logged",
-    targetType: "volunteer_log",
-    targetId: row.id,
-    metadata: {
-      onBehalfOf: target.id,
-      programId: data.programId,
-      category: data.category,
-      durationMinutes: data.durationMinutes,
-      activityDate: data.activityDate,
-    },
+  return db.transaction(async (tx) => {
+    let programId = data.programId;
+    const assignmentId = data.volunteerRoleAssignmentId ?? null;
+    if (assignmentId) {
+      programId = (await resolveAssignmentForLog(tx, target.id, assignmentId, data.activityDate)).programId;
+    }
+    await assertProgramUsable(programId);
+
+    const [row] = await tx
+      .insert(volunteerLogs)
+      .values({
+        userId: target.id,
+        programId,
+        volunteerRoleAssignmentId: assignmentId,
+        category: data.category,
+        activityDate: laDateInputToUtc(data.activityDate, false),
+        durationMinutes: data.durationMinutes,
+        description: data.description,
+        verificationMethod: "admin_approved",
+        createdByUserId: ctx.userId,
+        approvedByUserId: ctx.userId,
+        approvedAt: now,
+        inKindRateCents: rate,
+      })
+      .returning({ id: volunteerLogs.id });
+
+    await writeAudit(
+      {
+        actorUserId: ctx.userId,
+        action: "hours.logged",
+        targetType: "volunteer_log",
+        targetId: row.id,
+        metadata: {
+          onBehalfOf: target.id,
+          programId,
+          category: data.category,
+          durationMinutes: data.durationMinutes,
+          activityDate: data.activityDate,
+          ...(assignmentId ? { volunteerRoleAssignmentId: assignmentId } : {}),
+        },
+      },
+      tx
+    );
+    return { id: row.id };
   });
-  return { id: row.id };
 }

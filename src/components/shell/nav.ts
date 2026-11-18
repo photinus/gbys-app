@@ -10,6 +10,8 @@ export type NavIconKey =
   | "registrations"
   | "programHub"
   | "shifts"
+  | "roles"
+  | "volunteerRoles"
   | "hours"
   | "checkin"
   | "overview"
@@ -38,13 +40,16 @@ export interface NavOptions {
   isShiftCoordinator?: boolean;
   /** Board or any program staff role: program hub (seasons, rosters, emergency sheets). */
   isProgramStaff?: boolean;
+  /** FEATURE_VOLUNTEER_SHIFTS: shift scheduling entries show only when true (default off). */
+  volunteerShifts?: boolean;
 }
 
 /** Grouped sidebar navigation for a role. Empty groups are dropped. */
 export function getNavGroups(orgRole: OrgRole, opts: NavOptions = {}): NavGroup[] {
   const board = orgRole === "super_admin" || orgRole === "board_member";
   const staff = board || !!opts.isProgramStaff;
-  const coordinator = board || !!opts.isShiftCoordinator;
+  const shiftsOn = !!opts.volunteerShifts;
+  const coordinator = shiftsOn && (board || !!opts.isShiftCoordinator);
 
   const programs: NavItem[] = [
     ...(staff ? [{ label: "My programs", href: "/programs", icon: "programHub" as const }] : []),
@@ -72,7 +77,8 @@ export function getNavGroups(orgRole: OrgRole, opts: NavOptions = {}): NavGroup[
       title: "Volunteer",
       items: [
         { label: "Credentials", href: "/volunteer/credentials", icon: "credentials" },
-        { label: "Shifts", href: "/volunteer/shifts", icon: "shifts" },
+        { label: "Roles", href: "/volunteer/roles", icon: "roles" },
+        ...(shiftsOn ? [{ label: "Shifts", href: "/volunteer/shifts", icon: "shifts" as const }] : []),
         { label: "Hours", href: "/volunteer/hours", icon: "hours" },
       ],
     },
@@ -84,6 +90,7 @@ export function getNavGroups(orgRole: OrgRole, opts: NavOptions = {}): NavGroup[
         ? [
             { label: "Overview", href: "/admin", icon: "overview" },
             { label: "Users", href: "/admin/users", icon: "users" },
+            { label: "Volunteer roles", href: "/admin/volunteer-roles", icon: "volunteerRoles" },
             { label: "Compliance", href: "/admin/compliance", icon: "compliance" },
             { label: "Hours review", href: "/admin/hours", icon: "hoursReview" },
             { label: "Grants", href: "/admin/grants", icon: "grants" },

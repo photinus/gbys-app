@@ -10,14 +10,17 @@ import { CATEGORY_LABELS, VERIFICATION_LABELS, VOLUNTEER_CATEGORIES } from "@/li
 export function GrantFilterForm({
   filters,
   programs,
+  roles,
 }: {
   filters: GrantFilters;
   programs: { id: string; name: string }[];
+  roles: { id: string; name: string; programName: string | null }[];
 }) {
   const knownProgram = filters.program === "all" || filters.program === "org" || programs.some((p) => p.id === filters.program);
+  const knownRole = filters.role === "all" || filters.role === "none" || roles.some((r) => r.id === filters.role);
   return (
     <form method="get" action="/admin/grants" className="space-y-4">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <Field label="From" hint="Inclusive (Pacific time)">
           <Input type="date" name="from" defaultValue={filters.from} required />
         </Field>
@@ -34,6 +37,18 @@ export function GrantFilterForm({
               </option>
             ))}
             {!knownProgram ? <option value={filters.program}>Inactive program</option> : null}
+          </Select>
+        </Field>
+        <Field label="Volunteer role">
+          <Select name="role" defaultValue={filters.role}>
+            <option value="all">All roles</option>
+            <option value="none">No role (hours not tied to a role)</option>
+            {roles.map((r) => (
+              <option key={r.id} value={r.id}>
+                {r.name} ({r.programName ?? "Org-wide"})
+              </option>
+            ))}
+            {!knownRole ? <option value={filters.role}>Unknown role</option> : null}
           </Select>
         </Field>
         <Field label="Verification">

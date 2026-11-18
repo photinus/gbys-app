@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { runAction, type ActionResult } from "@/lib/dal/context";
+import { isFeatureEnabled } from "@/lib/features";
 import { cancelShift, createShift, updateShift } from "@/lib/dal/shifts";
 import type { ShiftFormInput } from "@/lib/validation/shifts";
 
@@ -23,6 +24,8 @@ function shiftFromForm(fd: FormData): ShiftFormInput {
   };
 }
 
+const SHIFTS_OFF = { ok: false, error: "Shift scheduling is turned off." } as const;
+
 function revalidateShifts() {
   revalidatePath("/volunteer/shifts");
   revalidatePath("/volunteer/shifts/manage");
@@ -33,6 +36,7 @@ export async function createShiftAction(
   _prev: ActionResult<unknown> | null,
   formData: FormData
 ): Promise<ActionResult<{ id: string }>> {
+  if (!isFeatureEnabled("volunteerShifts")) return SHIFTS_OFF;
   const res = await runAction((ctx) => createShift(ctx, shiftFromForm(formData)));
   if (res.ok) revalidateShifts();
   return res;
@@ -42,12 +46,14 @@ export async function updateShiftAction(
   _prev: ActionResult<unknown> | null,
   formData: FormData
 ): Promise<ActionResult> {
+  if (!isFeatureEnabled("volunteerShifts")) return SHIFTS_OFF;
   const res = await runAction((ctx) => updateShift(ctx, str(formData, "shiftId"), shiftFromForm(formData)));
   if (res.ok) revalidateShifts();
   return res;
 }
 
 export async function cancelShiftAction(shiftId: string): Promise<ActionResult> {
+  if (!isFeatureEnabled("volunteerShifts")) return SHIFTS_OFF;
   const res = await runAction((ctx) => cancelShift(ctx, String(shiftId)));
   if (res.ok) revalidateShifts();
   return res;

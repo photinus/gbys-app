@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { DalError, requireSession } from "@/lib/dal/context";
+import { isFeatureEnabled } from "@/lib/features";
 import { getShiftRoster, type ShiftRoster } from "@/lib/dal/shifts";
 import { Badge } from "@/components/ui";
 import { RosterBoard } from "@/components/shifts/roster-board";
@@ -11,6 +12,7 @@ import { CATEGORY_LABELS } from "@/lib/volunteer-categories";
 export const metadata = { title: "Shift roster | GBYS" };
 
 export default async function ShiftRosterPage({ params }: { params: Promise<{ id: string }> }) {
+  if (!isFeatureEnabled("volunteerShifts")) notFound();
   const { id } = await params;
   const ctx = await requireSession(`/volunteer/shifts/${id}`);
   let roster: ShiftRoster;

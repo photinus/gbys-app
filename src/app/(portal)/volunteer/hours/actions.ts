@@ -16,6 +16,7 @@ export async function logMyHoursAction(
 ): Promise<ActionResult<{ id: string }>> {
   const result = await runAction((ctx) =>
     logMyHours(ctx, {
+      volunteerRoleAssignmentId: str(formData, "volunteerRoleAssignmentId") || null,
       programId: str(formData, "programId") || null,
       category: str(formData, "category") as never,
       activityDate: str(formData, "activityDate"),

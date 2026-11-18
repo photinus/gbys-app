@@ -31,6 +31,8 @@ export function allowedDateRange(now: Date = new Date()): { min: string; max: st
 const emptyToNull = (v: unknown) => (v === "" || v === undefined ? null : v);
 
 export const logHoursSchema = z.object({
+  /** Optional: log against one of my active volunteer role assignments. */
+  volunteerRoleAssignmentId: z.preprocess(emptyToNull, uuid.nullable().optional()),
   programId: z.preprocess(emptyToNull, uuid.nullable()),
   category: z.enum(VOLUNTEER_CATEGORIES, { error: "Choose a category." }),
   activityDate: z

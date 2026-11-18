@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireSession } from "@/lib/dal/context";
+import { isFeatureEnabled } from "@/lib/features";
 import { isShiftCoordinator } from "@/lib/dal/permissions";
 import { listManageableShifts, listShiftProgramOptions } from "@/lib/dal/shifts";
 import { Card, CardHeader } from "@/components/ui";
@@ -14,6 +15,7 @@ export default async function ManageShiftsPage({
 }: {
   searchParams: Promise<{ range?: string }>;
 }) {
+  if (!isFeatureEnabled("volunteerShifts")) notFound();
   const ctx = await requireSession("/volunteer/shifts/manage");
   if (!isShiftCoordinator(ctx)) notFound();
   const { range } = await searchParams;

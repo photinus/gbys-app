@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { AlertTriangle, ArrowUpRight, CheckCircle2, Clock, CreditCard, FileWarning, MailX, ShieldCheck } from "lucide-react";
+import { AlertTriangle, ArrowUpRight, CheckCircle2, Clock, CreditCard, FileWarning, MailX, ShieldCheck, UserRoundCheck } from "lucide-react";
 import type { ReactNode } from "react";
 import { Badge, type BadgeTone } from "@/components/ui/badge";
 import { Card, CardHeader } from "@/components/ui/card";
@@ -64,6 +64,7 @@ export function AttentionCard({ a }: { a: AdminOverview["attention"] }) {
     a.expiringCredentials +
     a.pendingHours +
     a.unpaidRegistrations +
+    a.pendingRoleSignups +
     a.bouncedEmails +
     a.draftWaiverSeasons.length;
   return (
@@ -98,6 +99,14 @@ export function AttentionCard({ a }: { a: AdminOverview["attention"] }) {
           title="Self-reported hours pending"
           detail="Entries waiting for approval before they count toward grants"
           count={a.pendingHours}
+          tone="warning"
+        />
+        <Row
+          href="/admin/volunteer-roles"
+          icon={<UserRoundCheck className="h-4 w-4" />}
+          title="Volunteer role sign-ups pending approval"
+          detail="Volunteers waiting for a manager to approve their role"
+          count={a.pendingRoleSignups}
           tone="warning"
         />
         <Row
