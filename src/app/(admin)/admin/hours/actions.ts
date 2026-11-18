@@ -37,6 +37,7 @@ export async function logHoursForVolunteerAction(
   const result = await runAction((ctx) =>
     logHoursForVolunteer(ctx, {
       email: str(formData, "email"),
+      volunteerRoleAssignmentId: str(formData, "volunteerRoleAssignmentId") || null,
       programId: str(formData, "programId") || null,
       category: str(formData, "category") as never,
       activityDate: str(formData, "activityDate"),

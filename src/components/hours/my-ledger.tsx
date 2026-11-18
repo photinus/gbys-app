@@ -75,6 +75,7 @@ export function MyLedger({ entries, rejected }: { entries: HoursEntryRow[]; reje
                 <div className="mt-2 text-xs text-stone-500">
                   {CATEGORY_LABELS[r.category]} · {r.programName ?? "Organization"}
                 </div>
+                {r.roleName ? <div className="mt-1 text-xs font-semibold text-indigo-800">Role: {r.roleName}</div> : null}
                 <div className="mt-1 text-sm">
                   <Detail r={r} />
                 </div>
@@ -109,6 +110,7 @@ export function MyLedger({ entries, rejected }: { entries: HoursEntryRow[]; reje
                     <TD>
                       <div className="text-charcoal">{r.programName ?? "Organization"}</div>
                       <div className="text-xs text-stone-500">{CATEGORY_LABELS[r.category]}</div>
+                      {r.roleName ? <div className="text-xs font-semibold text-indigo-800">Role: {r.roleName}</div> : null}
                     </TD>
                     <TD className="max-w-xs">
                       <Detail r={r} />

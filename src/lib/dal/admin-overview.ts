@@ -10,14 +10,16 @@ import {
   users,
   volunteerLogs,
   volunteerShiftSignups,
+  volunteerRoleAssignments,
   volunteerShifts,
   waiverVersions,
 } from "@/db/schema";
 import { laDateInputToUtc, utcToLaDateInput } from "@/lib/format";
+import { isFeatureEnabled } from "@/lib/features";
 import { defaultGrantFilters } from "@/lib/validation/grants";
 import { computeSeasonStatus } from "@/lib/validation/seasons";
 import { DalError, isBoard, type SessionContext } from "./context";
-import { getGrantReport } from "./grants";
+import { getGrantReport, getRoleCommitments, termOverlapsRange } from "./grants";
 
 function requireBoard(ctx: SessionContext) {
   if (!isBoard(ctx)) throw new DalError("FORBIDDEN", "You do not have permission to do that.");
@@ -65,8 +67,22 @@ export interface AdminOverview {
     unpaidByProgram: { programId: string; programName: string; count: number }[];
     bouncedEmails: number;
     /** Open seasons whose waiver text still contains "DRAFT". */
+    /** Volunteer role sign-ups (status pending) waiting for a manager's decision, all programs. */
+    pendingRoleSignups: number;
     draftWaiverSeasons: { seasonId: string; seasonName: string; programId: string; programName: string }[];
   };
+  /** Volunteer roles card. Terms = assignments whose term overlaps the current LA year (same rule as /admin/grants). */
+  volunteerRoles: {
+    /** Assignments with status active whose term overlaps the current year. */
+    activeAssignments: number;
+    pendingApprovals: number;
+    /** Active + ended assignments overlapping this year: sum of snapshots vs verified logged minutes (== Role commitments totals). */
+    expectedMinutes: number;
+    verifiedMinutes: number;
+    fulfilmentPercent: number | null;
+  };
+  /** FEATURE_VOLUNTEER_SHIFTS: when false, upcomingShifts is empty and the page hides the card. */
+  shiftsEnabled: boolean;
   upcomingShifts: {
     count: number;
     next: {
@@ -98,6 +114,8 @@ export async function getAdminOverview(ctx: SessionContext, now: Date = new Date
   const monthStart = laDateInputToUtc(`${today.slice(0, 7)}-01`, false);
   const soon = new Date(now.getTime() + EXPIRING_WINDOW_DAYS * DAY_MS);
   const weekAhead = new Date(now.getTime() + 7 * DAY_MS);
+  const shiftsEnabled = isFeatureEnabled("volunteerShifts");
+  const yearRange = { from: `${year}-01-01`, to: `${year}-12-31` };
 
   const [
     activeVolRow,
@@ -110,6 +128,8 @@ export async function getAdminOverview(ctx: SessionContext, now: Date = new Date
     shiftCountRow,
     shiftRows,
     grant,
+    commitments,
+    roleStatusRows,
   ] = await Promise.all([
     db
       .select({ n: sql<number>`count(distinct ${userCredentials.userId})::int` })
@@ -169,13 +189,15 @@ export async function getAdminOverview(ctx: SessionContext, now: Date = new Date
       .leftJoin(waiverVersions, eq(waiverVersions.id, seasons.waiverVersionId))
       .where(and(eq(seasons.isActive, true), isNull(programs.deletedAt)))
       .orderBy(asc(programs.name), asc(seasons.name)),
-    db
-      .select({ n: sql<number>`count(*)::int` })
-      .from(volunteerShifts)
-      .where(
-        and(isNull(volunteerShifts.cancelledAt), gte(volunteerShifts.startsAt, now), lt(volunteerShifts.startsAt, weekAhead)),
-      ),
-    db
+    shiftsEnabled
+      ? db
+          .select({ n: sql<number>`count(*)::int` })
+          .from(volunteerShifts)
+          .where(
+            and(isNull(volunteerShifts.cancelledAt), gte(volunteerShifts.startsAt, now), lt(volunteerShifts.startsAt, weekAhead)),
+          )
+      : Promise.resolve([{ n: 0 }]),
+    (shiftsEnabled ? db
       .select({
         id: volunteerShifts.id,
         title: volunteerShifts.title,
@@ -191,8 +213,21 @@ export async function getAdminOverview(ctx: SessionContext, now: Date = new Date
         and(isNull(volunteerShifts.cancelledAt), gte(volunteerShifts.startsAt, now), lt(volunteerShifts.startsAt, weekAhead)),
       )
       .orderBy(asc(volunteerShifts.startsAt), asc(volunteerShifts.id))
-      .limit(3),
+      .limit(3) : Promise.resolve([])) as Promise<AdminOverview["upcomingShifts"]["next"]>,
     getGrantReport(ctx, defaultGrantFilters(now), { audit: false }),
+    getRoleCommitments(ctx, { ...defaultGrantFilters(now), ...yearRange, verification: "all" }),
+    // Candidate assignments for the roles card / attention item; the year overlap is decided in JS (termOverlapsRange).
+    db
+      .select({
+        status: volunteerRoleAssignments.status,
+        year: volunteerRoleAssignments.year,
+        startsOn: seasons.startsOn,
+        endsOn: seasons.endsOn,
+        seasonCreatedAt: seasons.createdAt,
+      })
+      .from(volunteerRoleAssignments)
+      .leftJoin(seasons, eq(seasons.id, volunteerRoleAssignments.seasonId))
+      .where(inArray(volunteerRoleAssignments.status, ["pending", "active"])),
   ]);
 
   const activeSeasons = seasonRows;
@@ -246,6 +281,9 @@ export async function getAdminOverview(ctx: SessionContext, now: Date = new Date
     (a, b) => b.count - a.count || a.programName.localeCompare(b.programName),
   );
 
+  const pendingRoleSignups = roleStatusRows.filter((r) => r.status === "pending").length;
+  const activeThisYear = roleStatusRows.filter((r) => r.status === "active" && termOverlapsRange(r, yearRange)).length;
+
   return {
     year,
     now,
@@ -269,10 +307,19 @@ export async function getAdminOverview(ctx: SessionContext, now: Date = new Date
       unpaidRegistrations: unpaidByProgram.reduce((s, p) => s + p.count, 0),
       unpaidByProgram,
       bouncedEmails: bouncedRow[0]?.n ?? 0,
+      pendingRoleSignups,
       draftWaiverSeasons: open
         .filter((s) => s.draftWaiver)
         .map((s) => ({ seasonId: s.id, seasonName: s.name, programId: s.programId, programName: s.programName })),
     },
+    volunteerRoles: {
+      activeAssignments: activeThisYear,
+      pendingApprovals: pendingRoleSignups,
+      expectedMinutes: commitments.totals.expectedMinutes,
+      verifiedMinutes: commitments.totals.verifiedMinutes,
+      fulfilmentPercent: commitments.totals.fulfilmentPercent,
+    },
+    shiftsEnabled,
     upcomingShifts: { count: shiftCountRow[0]?.n ?? 0, next: shiftRows },
     openSeasons: open.map((s) => ({
       id: s.id,

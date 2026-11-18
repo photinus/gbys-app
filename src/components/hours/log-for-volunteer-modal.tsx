@@ -9,16 +9,18 @@ import { useToast } from "@/components/ui/toast";
 import { FormError } from "@/components/household/form-error";
 import { useActionForm } from "@/components/household/use-action-form";
 import { logHoursForVolunteerAction } from "@/app/(admin)/admin/hours/actions";
-import { HoursFields, type ProgramChoice } from "./hours-fields";
+import { HoursFields, type ProgramChoice, type RoleChoice } from "./hours-fields";
 
 export function LogForVolunteerModal({
   programs,
   today,
   minDate,
+  roles = [],
 }: {
   programs: ProgramChoice[];
   today: string;
   minDate: string;
+  roles?: RoleChoice[];
 }) {
   const [open, setOpen] = useState(false);
   return (
@@ -34,7 +36,7 @@ export function LogForVolunteerModal({
         description="Saved as approved. Use for time the board witnessed or collected on paper."
         footer={null}
       >
-        <LogForm programs={programs} today={today} minDate={minDate} onDone={() => setOpen(false)} />
+        <LogForm programs={programs} today={today} minDate={minDate} roles={roles} onDone={() => setOpen(false)} />
       </Modal>
     </>
   );
@@ -44,11 +46,13 @@ function LogForm({
   programs,
   today,
   minDate,
+  roles,
   onDone,
 }: {
   programs: ProgramChoice[];
   today: string;
   minDate: string;
+  roles: RoleChoice[];
   onDone: () => void;
 }) {
   const toast = useToast();
@@ -66,7 +70,7 @@ function LogForm({
 
   return (
     <form onSubmit={onSubmit} className="space-y-5" aria-busy={pending}>
-      <HoursFields programs={programs} today={today} minDate={minDate} disabled={pending} withEmail />
+      <HoursFields programs={programs} today={today} minDate={minDate} disabled={pending} withEmail roles={roles} />
       <FormError state={state} />
       <div className="flex items-center justify-end gap-2.5">
         <Button variant="ghost" onClick={onDone} disabled={pending}>

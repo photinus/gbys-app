@@ -7,9 +7,10 @@ daily compliance cron (Sprint 2); seasons with a custom form builder, public
 registration with versioned waiver e-signatures, offline (cash/check/scholarship)
 payments and an offline-capable coach emergency sheet (Sprint 3a); admin overview, user management,
 org settings and branding, credential types, an audit log viewer and a grouped,
-collapsible sidebar (Admin & Navigation). See `AGENT_HANDOFF.md` for the
+collapsible sidebar (Admin & Navigation); volunteer roles with expected hours per
+season or year, sign-up/approval and grant commitment reporting (Volunteer Roles). See `AGENT_HANDOFF.md` for the
 product spec and invariants, `ARCHITECTURE.md` for the layout, and `docs/SPRINT1_PLAN.md`
-`docs/SPRINT2_PLAN.md` `docs/SPRINT3A_PLAN.md` and `docs/ADMIN_NAV_PLAN.md` for the sprint implementation plans. UI reference: `assets/ui-mockup.html`.
+`docs/SPRINT2_PLAN.md` `docs/SPRINT3A_PLAN.md` `docs/ADMIN_NAV_PLAN.md` and `docs/VOLUNTEER_ROLES_PLAN.md` for the sprint implementation plans. UI reference: `assets/ui-mockup.html`.
 
 ## Local development
 
@@ -46,3 +47,5 @@ Checks: `npm run typecheck` and `npm run build`.
   signatures are immutable; changing a waiver creates a new version.
 - The coach emergency sheet is cached on the device by `public/sw.js` for offline use
   (14-day expiry, purged on sign-out). No other page or API response is cached.
+- Feature flags (server env): `FEATURE_VOLUNTEER_SHIFTS=true` re-enables shift scheduling
+  (sign-up, manage shifts, kiosk check-in). Off by default; volunteer roles replace it.

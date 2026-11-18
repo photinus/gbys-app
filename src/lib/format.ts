@@ -161,3 +161,16 @@ export function formatHours(minutes: number): string {
 export function formatCents(cents: number): string {
   return (cents / 100).toLocaleString("en-US", { style: "currency", currency: "USD" });
 }
+
+/** Calendar-year bounds in America/Los_Angeles: [start of Jan 1, start of next Jan 1). */
+export function laYearBounds(year: number): { start: Date; end: Date } {
+  return {
+    start: laDateInputToUtc(`${year}-01-01`, false),
+    end: laDateInputToUtc(`${year + 1}-01-01`, false),
+  };
+}
+
+/** The America/Los_Angeles calendar year of an instant. */
+export function laYearOf(now: Date): number {
+  return Number(utcToLaDateInput(now).slice(0, 4));
+}

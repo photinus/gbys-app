@@ -62,6 +62,42 @@ export function ProgramTable({ report }: { report: GrantReport }) {
   return <BucketTable firstHeader="Program" rows={report.byProgram} total={report.totals} />;
 }
 
+export function RoleTable({ report }: { report: GrantReport }) {
+  if (report.byRole.length === 0) return <p className="py-4 text-sm text-stone-500">No entries match these filters.</p>;
+  const t = report.totals;
+  return (
+    <Table className="min-w-[520px]">
+      <THead>
+        <tr>
+          <TH>Volunteer role</TH>
+          <TH className="text-right">Entries</TH>
+          <TH className="text-right">Hours</TH>
+          <TH className="text-right">In-kind value</TH>
+        </tr>
+      </THead>
+      <TBody>
+        {report.byRole.map((b) => (
+          <TR key={b.key}>
+            <TD>
+              <div className="font-medium text-charcoal">{b.label}</div>
+              {b.programName ? <div className="text-xs text-stone-500">{b.programName}</div> : null}
+            </TD>
+            <TD className="text-right tabular-nums">{b.entries}</TD>
+            <TD className="text-right tabular-nums">{hrs(b.minutes)}</TD>
+            <TD className="text-right tabular-nums">{formatCents(b.valueCents)}</TD>
+          </TR>
+        ))}
+        <TR className="font-semibold">
+          <TD>Total</TD>
+          <TD className="text-right tabular-nums">{t.entries}</TD>
+          <TD className="text-right tabular-nums">{hrs(t.minutes)}</TD>
+          <TD className="text-right tabular-nums">{formatCents(t.valueCents)}</TD>
+        </TR>
+      </TBody>
+    </Table>
+  );
+}
+
 export function MonthTable({ report }: { report: GrantReport }) {
   return <BucketTable firstHeader="Month (Pacific)" rows={report.byMonth} total={report.totals} />;
 }

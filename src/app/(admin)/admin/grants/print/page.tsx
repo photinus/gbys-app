@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { CategoryTable, MonthTable, ProgramTable, VolunteerTable, rateStatement } from "@/components/grants/breakdown-tables";
+import { CategoryTable, MonthTable, ProgramTable, RoleTable, VolunteerTable, rateStatement } from "@/components/grants/breakdown-tables";
+import { COMMITMENT_NOTE, RoleCommitmentsTable } from "@/components/grants/role-commitments";
 import { PrintButton } from "@/components/grants/print-button";
 import { isBoard, requireSession } from "@/lib/dal/context";
-import { getGrantReport, recordGrantExport } from "@/lib/dal/grants";
+import { getGrantReport, getRoleCommitments, listGrantRoleOptions, recordGrantExport } from "@/lib/dal/grants";
 import { getBranding } from "@/lib/dal/settings";
 import { listActivePrograms } from "@/lib/dal/programs";
 import { formatCents, formatDate, formatDateTime } from "@/lib/format";
@@ -27,9 +28,11 @@ export default async function GrantPrintPage({
 
   const parsed = parseGrantFilters(await searchParams);
   const { filters } = parsed;
-  const [programs, report, branding] = await Promise.all([
+  const [programs, roles, report, commitments, branding] = await Promise.all([
     listActivePrograms(ctx),
+    listGrantRoleOptions(ctx),
     getGrantReport(ctx, filters, { audit: false }),
+    getRoleCommitments(ctx, filters),
     getBranding(),
   ]);
   await recordGrantExport(ctx, filters, { format: "print", rowCount: report.totals.entries });
@@ -40,6 +43,12 @@ export default async function GrantPrintPage({
       : filters.program === "org"
         ? "Org-wide only"
         : (programs.find((p) => p.id === filters.program)?.name ?? "Selected program");
+  const roleLabel =
+    filters.role === "all"
+      ? "All roles"
+      : filters.role === "none"
+        ? "No role (hours not tied to a role)"
+        : (roles.find((r) => r.id === filters.role)?.name ?? "Selected role");
   const verificationLabel =
     filters.verification === "verified"
       ? "Verified only (shift check-in and admin approved)"
@@ -77,6 +86,7 @@ export default async function GrantPrintPage({
       <section className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
         <p><span className="font-semibold">Program:</span> {programLabel}</p>
         <p><span className="font-semibold">Verification:</span> {verificationLabel}</p>
+        <p className="col-span-2"><span className="font-semibold">Volunteer role:</span> {roleLabel}</p>
         <p className="col-span-2"><span className="font-semibold">Categories:</span> {categoryLabel}</p>
       </section>
 
@@ -107,6 +117,17 @@ export default async function GrantPrintPage({
       <section className="break-inside-avoid overflow-x-clip">
         <h2 className="mb-1 text-base font-bold">By month</h2>
         <MonthTable report={report} />
+      </section>
+      <section className="break-inside-avoid overflow-x-clip">
+        <h2 className="mb-1 text-base font-bold">By volunteer role</h2>
+        <RoleTable report={report} />
+      </section>
+      <section className="break-inside-avoid overflow-x-clip">
+        <h2 className="mb-1 text-base font-bold">Role commitments</h2>
+        <RoleCommitmentsTable data={commitments} />
+        <p className="mt-1 text-xs text-stone-600">
+          Active and ended role assignments whose term overlaps this date range. {COMMITMENT_NOTE} Delivered hours count everything verified against these assignments, not only hours inside the date range.
+        </p>
       </section>
       <section className="overflow-x-clip">
         <h2 className="mb-1 text-base font-bold">By volunteer</h2>

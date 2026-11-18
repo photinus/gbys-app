@@ -5,6 +5,7 @@ import { SeasonStatusBadge } from "@/components/seasons/season-status-badge";
 import { Badge, Card, CardHeader, EmptyState, Table, TBody, TD, TH, THead, TR, buttonStyles } from "@/components/ui";
 import { DalError, requireSession } from "@/lib/dal/context";
 import { getProgramHub } from "@/lib/dal/seasons";
+import { getProgramRoleSummary } from "@/lib/dal/volunteer-roles";
 import { formatCents, formatDate, formatDateTime, formatDob } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Program" };
@@ -20,6 +21,7 @@ export default async function ProgramHubPage({ params }: { params: Promise<{ slu
     throw e;
   }
   const { program, seasons, canManage } = hub;
+  const roleSummary = await getProgramRoleSummary(ctx, program.id);
   const base = `/programs/${program.slug}`;
 
   return (
@@ -46,6 +48,26 @@ export default async function ProgramHubPage({ params }: { params: Promise<{ slu
           </Link>
         ) : null}
       </div>
+
+      <Card>
+        <CardHeader
+          title="Volunteer roles"
+          description="Positions volunteers can sign up for, with the hours you expect per term"
+          action={
+            <Link href={`${base}/roles`} className={buttonStyles({ size: "sm", variant: "secondary" })}>
+              {canManage ? "Manage roles" : "View roles"}
+            </Link>
+          }
+        />
+        <div className="flex flex-wrap gap-2 text-sm" data-testid="roles-summary">
+          <Badge tone="success">
+            {roleSummary.activeRoles} active {roleSummary.activeRoles === 1 ? "role" : "roles"}
+          </Badge>
+          <Badge tone={roleSummary.pendingSignups > 0 ? "warning" : "neutral"}>
+            {roleSummary.pendingSignups} pending {roleSummary.pendingSignups === 1 ? "sign-up" : "sign-ups"}
+          </Badge>
+        </div>
+      </Card>
 
       <Card>
         <CardHeader title="Seasons" description="Registration windows are shown in Pacific time" />

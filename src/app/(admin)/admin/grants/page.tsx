@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { CategoryTable, MonthTable, ProgramTable, VolunteerTable, rateStatement } from "@/components/grants/breakdown-tables";
+import { CategoryTable, MonthTable, ProgramTable, RoleTable, VolunteerTable, rateStatement } from "@/components/grants/breakdown-tables";
 import { GrantFilterForm } from "@/components/grants/grant-filter-form";
 import { GrantKpis } from "@/components/grants/grant-kpis";
+import { COMMITMENT_NOTE, RoleCommitmentsTable } from "@/components/grants/role-commitments";
 import { buttonStyles } from "@/components/ui/button";
 import { Card, CardHeader } from "@/components/ui/card";
 import { isBoard, requireSession } from "@/lib/dal/context";
-import { getGrantReport } from "@/lib/dal/grants";
+import { getGrantReport, getRoleCommitments, listGrantRoleOptions } from "@/lib/dal/grants";
 import { listActivePrograms } from "@/lib/dal/programs";
 import { grantFiltersToQuery, parseGrantFilters } from "@/lib/validation/grants";
 
@@ -23,7 +24,12 @@ export default async function GrantsPage({
 
   const parsed = parseGrantFilters(await searchParams);
   const { filters } = parsed;
-  const [programs, report] = await Promise.all([listActivePrograms(ctx), getGrantReport(ctx, filters)]);
+  const [programs, roles, report, commitments] = await Promise.all([
+    listActivePrograms(ctx),
+    listGrantRoleOptions(ctx),
+    getGrantReport(ctx, filters),
+    getRoleCommitments(ctx, filters),
+  ]);
   const query = grantFiltersToQuery(filters);
 
   return (
@@ -42,7 +48,7 @@ export default async function GrantsPage({
             {parsed.error} Showing the default range instead.
           </p>
         ) : null}
-        <GrantFilterForm filters={filters} programs={programs.map((p) => ({ id: p.id, name: p.name }))} />
+        <GrantFilterForm filters={filters} programs={programs.map((p) => ({ id: p.id, name: p.name }))} roles={roles} />
       </Card>
 
       <GrantKpis totals={report.totals} />
@@ -72,10 +78,25 @@ export default async function GrantsPage({
           <MonthTable report={report} />
         </Card>
         <Card>
+          <CardHeader title="By volunteer role" description="Hours logged against a role; the rest are listed as No role" />
+          <RoleTable report={report} />
+        </Card>
+        <Card>
           <CardHeader title="By volunteer" />
           <VolunteerTable report={report} />
         </Card>
       </div>
+
+      <Card>
+        <CardHeader
+          title="Role commitments"
+          description="Active and ended role assignments whose term overlaps this date range: expected hours against verified hours delivered"
+        />
+        <RoleCommitmentsTable data={commitments} />
+        <p className="mt-3 text-xs text-stone-500">
+          {COMMITMENT_NOTE} Delivered hours count everything verified against these assignments, not only hours inside the date range. Program and role filters apply.
+        </p>
+      </Card>
     </div>
   );
 }

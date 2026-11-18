@@ -50,6 +50,13 @@
       "when": 1795016417109,
       "tag": "0006_admin_settings_credential_types",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1795021169977,
+      "tag": "0007_volunteer_roles",
+      "breakpoints": true
     }
   ]
 }

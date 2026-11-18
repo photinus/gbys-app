@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import type { ReactNode } from "react";
 import { getBranding } from "@/lib/dal/settings";
+import { isFeatureEnabled } from "@/lib/features";
 import { MobileNav } from "./mobile-nav";
 import { getNavGroups, SIDEBAR_COOKIE } from "./nav";
 import { Sidebar } from "./sidebar";
@@ -29,6 +30,7 @@ export async function AppShell({
   const groups = getNavGroups(user.orgRole, {
     isShiftCoordinator: user.isShiftCoordinator,
     isProgramStaff: user.isProgramStaff,
+    volunteerShifts: isFeatureEnabled("volunteerShifts"),
   });
 
   return (

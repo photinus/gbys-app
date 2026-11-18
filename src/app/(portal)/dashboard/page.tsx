@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, CalendarCheck, Clock, ShieldCheck, Users } from "lucide-react";
+import { ArrowRight, BadgeCheck, CalendarCheck, Clock, ShieldCheck, Users } from "lucide-react";
 import { KpiCard } from "@/components/ui/kpi-card";
 import { PastelCard } from "@/components/ui/pastel-card";
 import { requireSession } from "@/lib/dal/context";
 import { getMyHoursSummary } from "@/lib/dal/volunteer-hours";
+import { getMyRolesSummary } from "@/lib/dal/volunteer-role-signups";
+import { isFeatureEnabled } from "@/lib/features";
 import { formatHours } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Dashboard" };
@@ -24,7 +26,8 @@ function greeting(): string {
 
 export default async function DashboardPage() {
   const ctx = await requireSession("/dashboard");
-  const hours = await getMyHoursSummary(ctx);
+  const [hours, roles] = await Promise.all([getMyHoursSummary(ctx), getMyRolesSummary(ctx)]);
+  const shiftsOn = isFeatureEnabled("volunteerShifts");
   const firstName = ctx.name.trim().split(/\s+/)[0] || ctx.email.split("@")[0] || "there";
 
   return (
@@ -71,6 +74,24 @@ export default async function DashboardPage() {
             className="h-full"
           />
         </Link>
+        <Link href="/volunteer/roles" className="block rounded-[24px] focus:outline-none focus-visible:ring-2 focus-visible:ring-periwinkle/60" data-testid="dash-roles">
+          <KpiCard
+            icon={<BadgeCheck className="w-5 h-5" />}
+            label="My volunteer roles"
+            value={roles.activeCount === 0 ? "No roles yet" : `${roles.activeCount} active ${roles.activeCount === 1 ? "role" : "roles"}`}
+            hint={
+              roles.activeCount === 0
+                ? roles.pendingCount > 0
+                  ? `${roles.pendingCount} ${roles.pendingCount === 1 ? "request" : "requests"} waiting for approval`
+                  : "Find a role to sign up for"
+                : `${formatHours(roles.verifiedMinutes)} of ${formatHours(roles.expectedMinutes)} expected logged${
+                    roles.pendingCount > 0 ? `. ${roles.pendingCount} role ${roles.pendingCount === 1 ? "request" : "requests"} waiting for approval` : ""
+                  }`
+            }
+            tone="coral"
+            className="h-full"
+          />
+        </Link>
       </section>
 
       <section>
@@ -100,15 +121,28 @@ export default async function DashboardPage() {
           </PastelCard>
           <PastelCard
             tone="peach"
-            title="Sign up for a volunteer shift"
+            title="Find a volunteer role"
             action={
-              <Link href="/volunteer/shifts" aria-label="Go to volunteer shifts" className="text-amber-800 hover:text-amber-950">
-                <CalendarCheck className="h-4 w-4" />
+              <Link href="/volunteer/roles" aria-label="Find a volunteer role" className="text-amber-800 hover:text-amber-950">
+                <ArrowRight className="h-4 w-4" />
               </Link>
             }
           >
-            Pick up an open shift. Hours from shifts you attend are added to your ledger automatically.
+            Coach, coordinate or help run a program. Sign up for a role, then log your hours against it.
           </PastelCard>
+          {shiftsOn ? (
+            <PastelCard
+              tone="lavender"
+              title="Sign up for a volunteer shift"
+              action={
+                <Link href="/volunteer/shifts" aria-label="Go to volunteer shifts" className="text-amber-800 hover:text-amber-950">
+                  <CalendarCheck className="h-4 w-4" />
+                </Link>
+              }
+            >
+              Pick up an open shift. Hours from shifts you attend are added to your ledger automatically.
+            </PastelCard>
+          ) : null}
         </div>
       </section>
     </div>

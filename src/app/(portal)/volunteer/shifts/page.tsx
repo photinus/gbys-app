@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { notFound } from "next/navigation";
+import { isFeatureEnabled } from "@/lib/features";
 import { requireSession } from "@/lib/dal/context";
 import { isShiftCoordinator } from "@/lib/dal/permissions";
 import { listActivePrograms } from "@/lib/dal/programs";
@@ -14,6 +16,7 @@ export default async function ShiftsPage({
 }: {
   searchParams: Promise<{ program?: string }>;
 }) {
+  if (!isFeatureEnabled("volunteerShifts")) notFound();
   const ctx = await requireSession("/volunteer/shifts");
   const { program } = await searchParams;
   const programId = typeof program === "string" ? program : "";

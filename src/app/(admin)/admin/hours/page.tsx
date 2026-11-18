@@ -5,6 +5,7 @@ import { LogForVolunteerModal } from "@/components/hours/log-for-volunteer-modal
 import { ReviewQueue } from "@/components/hours/review-queue";
 import { isBoard, requireSession } from "@/lib/dal/context";
 import { listActivePrograms } from "@/lib/dal/programs";
+import { listActiveAssignmentChoicesForBoard } from "@/lib/dal/volunteer-role-signups";
 import { listPendingHours } from "@/lib/dal/volunteer-hours";
 import { allowedDateRange } from "@/lib/validation/hours";
 
@@ -14,7 +15,11 @@ export default async function AdminHoursPage() {
   const ctx = await requireSession("/admin/hours");
   if (!isBoard(ctx)) notFound();
 
-  const [rows, programs] = await Promise.all([listPendingHours(ctx), listActivePrograms(ctx)]);
+  const [rows, programs, assignments] = await Promise.all([
+    listPendingHours(ctx),
+    listActivePrograms(ctx),
+    listActiveAssignmentChoicesForBoard(ctx),
+  ]);
   const { min, max } = allowedDateRange();
 
   return (
@@ -35,6 +40,15 @@ export default async function AdminHoursPage() {
               programs={programs.map((p) => ({ id: p.id, name: p.name }))}
               today={max}
               minDate={min}
+              roles={assignments.map((a) => ({
+                id: a.id,
+                label: `${a.volunteerName || a.volunteerEmail} — ${a.roleName} (${a.termLabel})`,
+                programId: a.programId,
+                category: a.category,
+                termMin: a.termMin,
+                termMax: a.termMax,
+                volunteerEmail: a.volunteerEmail,
+              }))}
             />
           }
         />

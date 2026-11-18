@@ -10,7 +10,7 @@ const pill =
   "inline-flex items-center gap-1.5 rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-stone-700 shadow-2xs";
 
 export function OverviewSide({ o }: { o: AdminOverview }) {
-  const { upcomingShifts: shifts, openSeasons } = o;
+  const { upcomingShifts: shifts, openSeasons, volunteerRoles: roles } = o;
   const more = shifts.count - shifts.next.length;
   return (
     <Card className="space-y-3.5">
@@ -26,6 +26,43 @@ export function OverviewSide({ o }: { o: AdminOverview }) {
         </Link>
       </div>
 
+      <PastelCard
+        tone="lavender"
+        title="Volunteer roles"
+        action={
+          <span className="rounded-full bg-white/80 px-2 py-0.5 text-[11px] font-semibold text-indigo-900">
+            {roles.activeAssignments.toLocaleString("en-US")} active
+          </span>
+        }
+      >
+        <ul className="space-y-1.5">
+          <li className="flex items-center justify-between gap-2">
+            <span>Pending approvals</span>
+            <Link href="/admin/volunteer-roles" className={`${pill} shrink-0`}>
+              {roles.pendingApprovals.toLocaleString("en-US")}
+            </Link>
+          </li>
+          <li className="flex items-center justify-between gap-2">
+            <span>Verified vs expected hours ({o.year})</span>
+            <span className={`${pill} shrink-0`}>
+              {formatHours(roles.verifiedMinutes)} / {formatHours(roles.expectedMinutes)}
+            </span>
+          </li>
+          <li className="flex items-center justify-between gap-2">
+            <span>Fulfilment</span>
+            <span className={`${pill} shrink-0`}>
+              {roles.fulfilmentPercent === null ? "n/a" : `${roles.fulfilmentPercent}%`}
+            </span>
+          </li>
+        </ul>
+        <div className="mt-3 flex justify-end">
+          <Link href="/admin/volunteer-roles" className="text-xs font-bold text-charcoal underline underline-offset-2">
+            Manage volunteer roles →
+          </Link>
+        </div>
+      </PastelCard>
+
+      {o.shiftsEnabled ? (
       <PastelCard
         tone="lavender"
         title="Upcoming shifts (next 7 days)"
@@ -62,6 +99,7 @@ export function OverviewSide({ o }: { o: AdminOverview }) {
           </Link>
         </div>
       </PastelCard>
+      ) : null}
 
       <PastelCard
         tone="peach"

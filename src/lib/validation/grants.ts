@@ -21,6 +21,8 @@ export const grantFiltersSchema = z
     to: ymd,
     program: z.union([z.literal("all"), z.literal("org"), z.string().uuid("Invalid program.")]),
     categories: z.array(z.enum(VOLUNTEER_CATEGORIES)),
+    /** "all" = every row, "none" = rows not linked to a volunteer role, else a volunteer role id. */
+    role: z.union([z.literal("all"), z.literal("none"), z.string().uuid("Invalid volunteer role.")]),
     verification: z.enum(VERIFICATION_FILTERS),
   })
   .refine((v) => v.from <= v.to, { message: "The start date must be on or before the end date.", path: ["from"] });
@@ -34,6 +36,7 @@ export function defaultGrantFilters(now = new Date()): GrantFilters {
     to: today,
     program: "all",
     categories: [],
+    role: "all",
     verification: "verified",
   };
 }
@@ -58,6 +61,7 @@ export function parseGrantFilters(params: Params): ParsedGrantFilters {
     to: all(params, "to")[0] ?? d.to,
     program: all(params, "program")[0] ?? d.program,
     categories: [...new Set(all(params, "categories"))],
+    role: all(params, "role")[0] ?? d.role,
     verification: all(params, "verification")[0] ?? d.verification,
   };
   const res = grantFiltersSchema.safeParse(candidate);
@@ -71,6 +75,7 @@ export function grantFiltersToQuery(f: GrantFilters): string {
   q.set("from", f.from);
   q.set("to", f.to);
   q.set("program", f.program);
+  q.set("role", f.role);
   q.set("verification", f.verification);
   for (const c of f.categories) q.append("categories", c);
   return q.toString();

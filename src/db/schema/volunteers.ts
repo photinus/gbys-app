@@ -3,6 +3,8 @@ import {
   pgTable,
   text,
   timestamp,
+  boolean,
+  jsonb,
   integer,
   uuid,
   pgEnum,
@@ -11,7 +13,7 @@ import {
   check,
 } from "drizzle-orm/pg-core";
 import { users } from "./auth";
-import { programs } from "./programs";
+import { programs, programRoleEnum, seasons } from "./programs";
 
 export const volunteerCategoryEnum = pgEnum("volunteer_category", [
   "coaching",
@@ -27,6 +29,112 @@ export const verificationMethodEnum = pgEnum("verification_method", [
   "shift_checkin",
   "admin_approved",
 ]);
+
+export const volunteerRolePeriodEnum = pgEnum("volunteer_role_period", ["per_season", "per_year"]);
+
+export const volunteerRoleAssignmentStatusEnum = pgEnum("volunteer_role_assignment_status", [
+  "pending",
+  "active",
+  "declined",
+  "withdrawn",
+  "ended",
+]);
+
+/**
+ * Catalog of volunteer positions (e.g. "Program Coordinator", "Head Baseball Coach").
+ * programId null = org-wide role (board-managed). Expected hours are per term:
+ * per_season (program roles only; term = a season) or per_year (LA calendar year).
+ *
+ * Safety invariant (DB-enforced): a role that grants a permission role (roster /
+ * emergency-sheet access) must be program-scoped AND require approval, so nobody
+ * can self-grant access to athlete medical data.
+ */
+export const volunteerRoles = pgTable(
+  "volunteer_roles",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    programId: uuid("program_id").references(() => programs.id), // Null = org-wide
+    name: text("name").notNull(),
+    description: text("description"),
+    category: volunteerCategoryEnum("category").notNull(), // default category for hours logged under it
+    period: volunteerRolePeriodEnum("period").notNull(),
+    expectedMinutes: integer("expected_minutes").notNull(), // per term
+    slots: integer("slots"), // live (pending+active) assignments allowed per term; null = unlimited
+    requiresApproval: boolean("requires_approval").notNull().default(true),
+    grantsProgramRole: programRoleEnum("grants_program_role"), // null = grants no permissions
+    requiredCredentialIds: jsonb("required_credential_ids").$type<string[]>().notNull().default([]),
+    isActive: boolean("is_active").notNull().default(true),
+    createdByUserId: text("created_by_user_id").references(() => users.id),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (t) => [
+    index("volunteer_roles_program_idx").on(t.programId),
+    check("volunteer_roles_expected_chk", sql`${t.expectedMinutes} >= 0 and ${t.expectedMinutes} <= 200000`),
+    check("volunteer_roles_slots_chk", sql`${t.slots} is null or ${t.slots} >= 1`),
+    check(
+      "volunteer_roles_season_needs_program_chk",
+      sql`${t.period} <> 'per_season' or ${t.programId} is not null`
+    ),
+    check(
+      "volunteer_roles_grant_safety_chk",
+      sql`${t.grantsProgramRole} is null or (${t.requiresApproval} and ${t.programId} is not null)`
+    ),
+  ]
+);
+
+/**
+ * A person's sign-up for a role for one term. termKey = "season:<uuid>" or
+ * "year:<yyyy>" (see src/lib/dal/volunteer-role-shared.ts). One live
+ * (pending/active) assignment per (role, user, term). Rows are never deleted;
+ * status transitions record who/when/why. expectedMinutes is snapshotted when the
+ * assignment becomes active so later catalog edits don't rewrite grant history.
+ * programRoleId links the permission row created on approval (revoked on end).
+ */
+export const volunteerRoleAssignments = pgTable(
+  "volunteer_role_assignments",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    roleId: uuid("role_id")
+      .notNull()
+      .references(() => volunteerRoles.id),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id),
+    seasonId: uuid("season_id").references(() => seasons.id),
+    year: integer("year"),
+    termKey: text("term_key").notNull(),
+    status: volunteerRoleAssignmentStatusEnum("status").notNull().default("pending"),
+    expectedMinutes: integer("expected_minutes"), // snapshot; set when active
+    signedUpAt: timestamp("signed_up_at", { withTimezone: true }).notNull().defaultNow(),
+    signupNote: text("signup_note"),
+    decidedAt: timestamp("decided_at", { withTimezone: true }),
+    decidedByUserId: text("decided_by_user_id").references(() => users.id),
+    decisionNote: text("decision_note"),
+    endedAt: timestamp("ended_at", { withTimezone: true }),
+    endedByUserId: text("ended_by_user_id").references(() => users.id),
+    endReason: text("end_reason"),
+    programRoleId: uuid("program_role_id"), // program_roles.id created on approval (no FK: that row is deleted on end)
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (t) => [
+    index("vra_role_idx").on(t.roleId),
+    index("vra_user_idx").on(t.userId),
+    uniqueIndex("vra_live_unique_idx")
+      .on(t.roleId, t.userId, t.termKey)
+      .where(sql`${t.status} in ('pending', 'active')`),
+    check(
+      "vra_term_chk",
+      sql`(${t.seasonId} is not null and ${t.year} is null) or (${t.seasonId} is null and ${t.year} is not null)`
+    ),
+  ]
+);
 
 /**
  * A volunteer opportunity with `spotsTotal` slots. Who fills the slots lives in
@@ -103,6 +211,8 @@ export const volunteerLogs = pgTable(
       .references(() => users.id),
     programId: uuid("program_id").references(() => programs.id), // Null = Org/Board general hours
     shiftId: uuid("shift_id").references(() => volunteerShifts.id),
+    // Hours logged against a volunteer role assignment (grant: expected vs actual).
+    volunteerRoleAssignmentId: uuid("volunteer_role_assignment_id").references(() => volunteerRoleAssignments.id),
     category: volunteerCategoryEnum("category").notNull(),
     activityDate: timestamp("activity_date", { withTimezone: true }).notNull(),
     durationMinutes: integer("duration_minutes").notNull(),
@@ -123,6 +233,7 @@ export const volunteerLogs = pgTable(
     index("volunteer_logs_user_idx").on(t.userId),
     index("volunteer_logs_date_idx").on(t.activityDate),
     index("volunteer_logs_program_idx").on(t.programId),
+    index("volunteer_logs_role_assignment_idx").on(t.volunteerRoleAssignmentId),
     // At most one live ledger entry per volunteer per shift (double check-in guard).
     uniqueIndex("volunteer_logs_shift_user_live_idx")
       .on(t.shiftId, t.userId)
