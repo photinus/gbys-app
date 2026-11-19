@@ -2,6 +2,8 @@
 export const SIDEBAR_COOKIE = "gbys_sidebar";
 /** Session cookie (no expiry): set once the first-load sidebar intro has been shown. */
 export const INTRO_COOKIE = "gbys_sidebar_intro";
+/** Cookie listing the collapsed nav group ids (comma list, "none" when all are open), read server-side. */
+export const NAV_COLLAPSED_COOKIE = "gbys_nav_collapsed";
 
 export type OrgRole = "super_admin" | "board_member" | "member";
 
@@ -39,10 +41,30 @@ export interface NavItem {
   icon: NavIconKey;
 }
 
+/** Icon shown for a whole group in the collapsed rail (see GROUP_ICONS in nav-icons.ts). */
+export type GroupIconKey =
+  | "overview"
+  | "family"
+  | "volunteer"
+  | "programs"
+  | "admin"
+  | "people"
+  | "operations"
+  | "money"
+  | "governance";
+
 export interface NavGroup {
   id: string;
   title: string;
+  icon: GroupIconKey;
   items: NavItem[];
+  /** Sections the user can fold. Overview and the Administration heading never are. */
+  collapsible: boolean;
+  /** Folded on first visit (no gbys_nav_collapsed cookie yet). */
+  defaultCollapsed?: boolean;
+  /** Heading-only entry (no items) whose title links to `href`: the Administration overview. */
+  heading?: boolean;
+  href?: string;
 }
 
 export interface NavOptions {
@@ -58,34 +80,51 @@ export interface NavOptions {
   volunteerShifts?: boolean;
 }
 
-/** Grouped sidebar navigation for a role. Empty groups are dropped. */
+/**
+ * Grouped sidebar navigation for a role. Empty groups are dropped. Board users get a
+ * non-collapsible "Administration" heading (links to /admin) followed by four collapsible
+ * admin sections; they reach program hubs via Administration > Programs and the board via
+ * /admin/board, so "Program hubs" and "Board meetings" are not repeated for them.
+ */
 export function getNavGroups(orgRole: OrgRole, opts: NavOptions = {}): NavGroup[] {
   const board = orgRole === "super_admin" || orgRole === "board_member";
-  const staff = board || !!opts.isProgramStaff;
   const shiftsOn = !!opts.volunteerShifts;
   const coordinator = shiftsOn && (board || !!opts.isShiftCoordinator);
 
   const programs: NavItem[] = [
-    ...(staff ? [{ label: board ? "Program hubs" : "My programs", href: "/programs", icon: "programHub" as const }] : []),
+    ...(!board && opts.isProgramStaff ? [{ label: "My programs", href: "/programs", icon: "programHub" as const }] : []),
     ...(opts.hasTeams ? [{ label: "My teams", href: "/teams", icon: "teams" as const }] : []),
     ...(coordinator
       ? [{ label: "Manage shifts", href: "/volunteer/shifts/manage", icon: "checkin" as const }]
       : []),
   ];
 
+  const admin = (id: string, title: string, icon: GroupIconKey, items: NavItem[]): NavGroup => ({
+    id,
+    title,
+    icon,
+    items,
+    collapsible: true,
+    defaultCollapsed: true,
+  });
+
   const groups: NavGroup[] = [
     {
       id: "overview",
       title: "Overview",
+      icon: "overview",
+      collapsible: false,
       items: [
         { label: "Dashboard", href: "/dashboard", icon: "dashboard" },
-        { label: "Board meetings", href: "/board", icon: "board" },
+        ...(board ? [] : [{ label: "Board meetings", href: "/board", icon: "board" as const }]),
         ...(opts.isSeatedDirector ? [{ label: "My votes", href: "/board/votes", icon: "boardVotes" as const }] : []),
       ],
     },
     {
       id: "family",
       title: "My family",
+      icon: "family",
+      collapsible: true,
       items: [
         { label: "Household", href: "/household", icon: "household" },
         { label: "Registrations", href: "/registrations", icon: "registrations" },
@@ -95,37 +134,70 @@ export function getNavGroups(orgRole: OrgRole, opts: NavOptions = {}): NavGroup[
     {
       id: "volunteer",
       title: "Volunteer",
+      icon: "volunteer",
+      collapsible: true,
       items: [
         { label: "Credentials", href: "/volunteer/credentials", icon: "credentials" },
         { label: "Roles", href: "/volunteer/roles", icon: "roles" },
-        ...(shiftsOn ? [{ label: "Shifts", href: "/volunteer/shifts", icon: "shifts" as const }] : []),
         { label: "Hours", href: "/volunteer/hours", icon: "hours" },
+        ...(shiftsOn ? [{ label: "Shifts", href: "/volunteer/shifts", icon: "shifts" as const }] : []),
       ],
     },
-    { id: "programs", title: "Programs", items: programs },
-    {
-      id: "admin",
-      title: "Administration",
-      items: board
-        ? [
-            { label: "Overview", href: "/admin", icon: "overview" },
-            { label: "Users", href: "/admin/users", icon: "users" },
-            { label: "Volunteer roles", href: "/admin/volunteer-roles", icon: "volunteerRoles" },
-            { label: "Compliance", href: "/admin/compliance", icon: "compliance" },
-            { label: "Hours review", href: "/admin/hours", icon: "hoursReview" },
-            { label: "Payments", href: "/admin/payments", icon: "payments" },
-            { label: "Grants", href: "/admin/grants", icon: "grants" },
-            { label: "Programs", href: "/admin/programs", icon: "programs" },
-            { label: "Settings", href: "/admin/settings", icon: "settings" },
-            { label: "Board of Directors", href: "/admin/board", icon: "boardAdmin" },
-            { label: "Facilities", href: "/admin/facilities", icon: "facilities" },
-            { label: "Contact forms", href: "/admin/contact", icon: "contact" },
-            { label: "Audit log", href: "/admin/audit", icon: "audit" },
-          ]
-        : [],
-    },
+    { id: "programs", title: "Programs & teams", icon: "programs", collapsible: true, items: programs },
   ];
-  return groups.filter((g) => g.items.length > 0);
+
+  if (board) {
+    groups.push(
+      { id: "admin", title: "Administration", icon: "admin", collapsible: false, heading: true, href: "/admin", items: [] },
+      admin("admin-people", "People", "people", [
+        { label: "Users", href: "/admin/users", icon: "users" },
+        { label: "Compliance", href: "/admin/compliance", icon: "compliance" },
+        { label: "Volunteer roles", href: "/admin/volunteer-roles", icon: "volunteerRoles" },
+        { label: "Hours review", href: "/admin/hours", icon: "hoursReview" },
+      ]),
+      admin("admin-programs", "Programs & facilities", "operations", [
+        { label: "Programs", href: "/admin/programs", icon: "programs" },
+        { label: "Facilities", href: "/admin/facilities", icon: "facilities" },
+        { label: "Contact forms", href: "/admin/contact", icon: "contact" },
+      ]),
+      admin("admin-money", "Money & reporting", "money", [
+        { label: "Payments", href: "/admin/payments", icon: "payments" },
+        { label: "Grants", href: "/admin/grants", icon: "grants" },
+      ]),
+      admin("admin-governance", "Governance", "governance", [
+        { label: "Board of Directors", href: "/admin/board", icon: "boardAdmin" },
+        { label: "Audit log", href: "/admin/audit", icon: "audit" },
+        { label: "Settings", href: "/admin/settings", icon: "settings" },
+      ]),
+    );
+  }
+  return groups.filter((g) => g.heading || g.items.length > 0);
+}
+
+/** Every href in the nav (items and heading links), for most-specific-match active checks. */
+export function allNavHrefs(groups: NavGroup[]): string[] {
+  return groups.flatMap((g) => [...(g.href ? [g.href] : []), ...g.items.map((i) => i.href)]);
+}
+
+/** Whether any item of the group is the current page. */
+export function groupHasActive(group: NavGroup, pathname: string | null, allHrefs: string[]): boolean {
+  return group.items.some((i) => isActivePath(pathname, i.href, allHrefs));
+}
+
+/** Ids of the groups that start collapsed when the user has not chosen yet. */
+export function defaultCollapsedIds(groups: NavGroup[]): string[] {
+  return groups.filter((g) => g.collapsible && g.defaultCollapsed).map((g) => g.id);
+}
+
+/** Parse the gbys_nav_collapsed cookie (comma list; "none" = everything open). Unknown ids dropped. */
+export function parseCollapsedCookie(value: string | undefined, groups: NavGroup[]): string[] {
+  if (value === undefined) return defaultCollapsedIds(groups);
+  const known = new Set(groups.filter((g) => g.collapsible).map((g) => g.id));
+  return value.split(",").filter((id) => known.has(id));
+}
+
+export function serializeCollapsed(ids: string[]): string {
+  return ids.length ? ids.join(",") : "none";
 }
 
 /**

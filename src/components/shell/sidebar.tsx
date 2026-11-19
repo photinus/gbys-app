@@ -21,8 +21,13 @@ const PEEK_CLOSE_MS = 150;
  *   (slot reserves 248px) for ~3s, then collapses to the 80px rail once. Hover / keyboard focus
  *   cancels the auto-collapse until the pointer leaves / focus leaves.
  * - Unpinned otherwise: the 80px rail. Hover-to-peek is an overlay that opens after ~200ms of
- *   continuous hover and closes ~150ms after leave; keyboard focus-visible opens immediately and
- *   closes on blur; clicking a link closes it at once.
+ *   continuous hover and closes ~150ms after leave; clicking a link closes it at once.
+ * - Rail vs fly-outs (one consistent rule): hovering the rail BACKGROUND (logo, gaps, footer,
+ *   Overview icons) still peeks the whole sidebar, but hovering a GROUP icon opens that group's
+ *   fly-out menu (nav-flyout.tsx) and cancels the pending peek. Likewise keyboard focus on a
+ *   group icon opens its fly-out, so keyboard focus inside the collapsed rail does NOT expand the
+ *   sidebar (it would hide the fly-outs); keyboard users expand it with the "Expand sidebar"
+ *   button or pin it. Keyboard focus while already expanded (peek / intro) behaves as before.
  */
 export function Sidebar({
   groups,
@@ -41,6 +46,8 @@ export function Sidebar({
   const [intro, setIntro] = useState(initialIntro && !initialPinned);
   const [peek, setPeek] = useState(false);
   const hovered = useRef(false);
+  // Pointer is over a rail group icon / its fly-out ([data-rail-flyout]): the fly-out wins, no peek.
+  const overFlyout = useRef(false);
   const focused = useRef(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -119,11 +126,23 @@ export function Sidebar({
     clearTimer();
     if (pinned || intro || peek) return;
     later(PEEK_OPEN_MS, () => {
-      if (hovered.current) setPeek(true);
+      if (hovered.current && !overFlyout.current) setPeek(true);
     });
+  }
+  function onOver(e: React.MouseEvent) {
+    const inFlyout = !!(e.target as HTMLElement).closest?.("[data-rail-flyout]");
+    if (inFlyout === overFlyout.current) return;
+    overFlyout.current = inFlyout;
+    if (pinned || intro || peek || !hovered.current) return;
+    if (inFlyout) clearTimer();
+    else
+      later(PEEK_OPEN_MS, () => {
+        if (hovered.current && !overFlyout.current) setPeek(true);
+      });
   }
   function onLeave() {
     hovered.current = false;
+    overFlyout.current = false;
     if (pinned) return;
     if (intro) return endIntroLater(LEAVE_COLLAPSE_MS);
     if (focused.current) {
@@ -141,6 +160,7 @@ export function Sidebar({
       // older engines: treat as keyboard focus
     }
     if (!visible) return;
+    if (!pinned && !intro && !peek) return; // rail: group icons open fly-outs instead of peeking
     focused.current = true;
     clearTimer();
     if (!pinned && !intro) setPeek(true);
@@ -168,6 +188,7 @@ export function Sidebar({
     <div
       data-pinned={pinned ? "true" : "false"}
       onMouseEnter={onEnter}
+      onMouseOver={onOver}
       onMouseLeave={onLeave}
       onFocus={onFocus}
       onBlur={onBlur}
@@ -189,7 +210,7 @@ export function Sidebar({
       >
         <div
           className={cn(
-            "flex items-center gap-3 pt-6 pb-4",
+            "flex items-center gap-3 pt-5 pb-3",
             collapsed ? "justify-center px-4" : "px-5",
           )}
         >

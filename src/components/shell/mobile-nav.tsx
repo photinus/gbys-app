@@ -85,7 +85,7 @@ export function MobileNav({
               </button>
             </div>
             <div className="flex-1 overflow-y-auto px-3 pb-6 pt-2">
-              <NavList groups={groups} onNavigate={close} />
+              <NavList groups={groups} onNavigate={close} roomy />
             </div>
           </div>
         ) : null}
