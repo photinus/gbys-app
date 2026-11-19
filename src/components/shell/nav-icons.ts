@@ -1,4 +1,5 @@
 import {
+  Inbox,
   Vote,
   CalendarClock,
   Landmark,
@@ -46,4 +47,5 @@ export const NAV_ICONS: Record<NavIconKey, LucideIcon> = {
   board: CalendarClock,
   boardAdmin: Landmark,
   boardVotes: Vote,
+  contact: Inbox,
 };

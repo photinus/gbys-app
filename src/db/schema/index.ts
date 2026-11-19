@@ -7,4 +7,5 @@ export * from "./registration";
 export * from "./facilities";
 export * from "./settings";
 export * from "./board";
+export * from "./contact";
 export * from "./relations";

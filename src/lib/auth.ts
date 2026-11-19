@@ -6,6 +6,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import * as schema from "@/db/schema";
 import { createAppleClientSecret } from "./apple-client-secret";
+import { TRUSTED_CLIENT_IP_HEADER } from "./client-ip";
 import { sendMagicLinkEmail } from "./email";
 
 const baseURL = process.env.BETTER_AUTH_URL || undefined;
@@ -82,6 +83,12 @@ export const auth = betterAuth({
         }
       : {}),
     ...(appleProvider ? { apple: appleProvider } : {}),
+  },
+  // Rate limiting keys on the client IP. Behind Railway's edge, X-Real-IP is the
+  // trusted connecting address (see src/lib/client-ip.ts); without this all users
+  // share one rate-limit bucket.
+  advanced: {
+    ipAddress: { ipAddressHeaders: [TRUSTED_CLIENT_IP_HEADER] },
   },
   account: {
     accountLinking: {

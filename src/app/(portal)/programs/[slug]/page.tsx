@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { InactiveProgramBanner } from "@/components/programs/inactive-banner";
 import { SeasonStatusBadge } from "@/components/seasons/season-status-badge";
 import { Badge, Card, CardHeader, EmptyState, Table, TBody, TD, TH, THead, TR, buttonStyles } from "@/components/ui";
+import { countNewSubmissions } from "@/lib/dal/contact-forms";
 import { DalError, isBoard, requireSession } from "@/lib/dal/context";
 import { getProgramHub } from "@/lib/dal/seasons";
 import { getProgramRoleSummary } from "@/lib/dal/volunteer-roles";
@@ -23,6 +24,7 @@ export default async function ProgramHubPage({ params }: { params: Promise<{ slu
   }
   const { program, seasons, canManage } = hub;
   const roleSummary = await getProgramRoleSummary(ctx, program.id);
+  const newContact = canManage ? await countNewSubmissions(ctx, { programId: program.id }) : null;
   const base = `/programs/${program.slug}`;
   const board = isBoard(ctx);
 
@@ -78,6 +80,25 @@ export default async function ProgramHubPage({ params }: { params: Promise<{ slu
           </Badge>
         </div>
       </Card>
+
+      {newContact !== null ? (
+        <Card>
+          <CardHeader
+            title="Contact forms"
+            description="Public contact forms for this program, and the messages people send through them"
+            action={
+              <Link href={`${base}/contact`} data-testid="contact-forms-link" className={buttonStyles({ size: "sm", variant: "secondary" })}>
+                Open contact inbox
+              </Link>
+            }
+          />
+          <div className="flex flex-wrap gap-2 text-sm" data-testid="contact-summary">
+            <Badge tone={newContact > 0 ? "info" : "neutral"}>
+              {newContact} new {newContact === 1 ? "message" : "messages"}
+            </Badge>
+          </div>
+        </Card>
+      ) : null}
 
       <Card>
         <CardHeader title="Seasons" description="Registration windows are shown in Pacific time" />
