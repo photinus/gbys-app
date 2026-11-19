@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { DalError, runAction, type ActionResult } from "@/lib/dal/context";
+import { refundRegistration } from "@/lib/dal/stripe-refunds";
 import { cancelRegistration, recordOfflinePayment, voidOfflinePayment } from "@/lib/dal/rosters";
 import { dollarsToCents, type OfflineMethod } from "@/lib/validation/rosters";
 
@@ -54,6 +55,21 @@ export async function cancelRegistrationAction(
   const result = await runAction((ctx) =>
     cancelRegistration(ctx, str(fd, "registrationId"), str(fd, "reason"))
   );
+  if (result.ok) revalidateRoster(str(fd, "path"));
+  return result;
+}
+
+export async function refundRegistrationAction(
+  _prev: ActionResult<{ amountCents: number }> | null,
+  fd: FormData
+): Promise<ActionResult<{ amountCents: number }>> {
+  const raw = str(fd, "amount").trim();
+  const cents = raw === "" ? undefined : dollarsToCents(raw);
+  const result = await runAction(async (ctx) => {
+    if (cents === null) throw new DalError("INVALID", "Enter a valid amount, e.g. 25.00.");
+    const r = await refundRegistration(ctx, str(fd, "registrationId"), { amountCents: cents, reason: str(fd, "reason") });
+    return { amountCents: r.amountCents };
+  });
   if (result.ok) revalidateRoster(str(fd, "path"));
   return result;
 }

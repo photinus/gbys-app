@@ -63,7 +63,7 @@ export function ProgramEditForm({
               : "Connected, onboarding incomplete"
             : "Not connected (routes to the GBYS account)"}
         </span>
-        . Managed in a later release.
+        . Manage it in the Payments card above.
       </div>
       <FormError state={state} />
       <div className="flex justify-end pt-1">

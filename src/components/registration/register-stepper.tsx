@@ -14,6 +14,7 @@ import { formatDob } from "@/lib/format";
 import { normalizeSignatureName, signatureNameSchema } from "@/lib/validation/registration";
 import { cn } from "@/lib/utils";
 import { closesLabel, eligibilityLabel, feeLabel } from "./format";
+import { PayNowButton } from "./pay-now-button";
 
 type Answers = Record<string, string | boolean>;
 type StepKey = "choose" | "questions" | "waiver" | "done";
@@ -342,11 +343,16 @@ export function RegisterStepper({ seasons }: { seasons: RegistrationSeason[] }) 
                 <CircleAlert className="h-4 w-4 text-amber-700" aria-hidden /> Amount due: {feeLabel(state.data.feeCents)}
               </p>
               <p className="mt-1 text-xs leading-relaxed">
-                Pay your program by cash or check; a coordinator will record it. Online payment is coming soon.
+                {state.data.canPayOnline
+                  ? "Pay now by card on a secure Stripe page, or pay your program by cash or check and a coordinator will record it."
+                  : "Pay your program by cash or check; a coordinator will record it."}
               </p>
             </div>
           )}
-          <div className="flex flex-wrap gap-2.5">
+          <div className="flex flex-wrap items-start gap-2.5">
+            {state.data.feeCents > 0 && state.data.canPayOnline ? (
+              <PayNowButton registrationId={state.data.registrationId} amountCents={state.data.feeCents} size="md" />
+            ) : null}
             <Link href="/registrations" className={buttonStyles()}>
               View my registrations
             </Link>

@@ -24,6 +24,7 @@ import { cn } from "@/lib/utils";
 import {
   cancelRegistrationAction,
   recordPaymentAction,
+  refundRegistrationAction,
   voidPaymentAction,
 } from "@/app/(portal)/programs/[slug]/seasons/[seasonId]/registrations/actions";
 import { PaymentBadge } from "./payment-badge";
@@ -35,7 +36,16 @@ const FILTERS: { id: RosterFilter; label: string }[] = [
   { id: "cancelled", label: "Cancelled" },
 ];
 
-type Dialog = { kind: "pay" | "cancel" | "void"; row: RosterRow } | null;
+/** Card payments taken in the app with a refundable balance left. */
+function canRefund(r: RosterRow): boolean {
+  return (
+    r.paymentMethod === "stripe" &&
+    r.paymentStatus === "paid" &&
+    (r.amountPaidCents ?? 0) - r.refundedCents > 0
+  );
+}
+
+type Dialog = { kind: "pay" | "cancel" | "void" | "refund"; row: RosterRow } | null;
 
 export function RosterTable({
   rows,
@@ -132,13 +142,21 @@ export function RosterTable({
                   )}
                 </TD>
                 <TD>
-                  <PaymentBadge status={r.paymentStatus} />
+                  <div className="flex flex-wrap gap-1">
+                    <PaymentBadge status={r.paymentStatus} />
+                    {r.disputedAt ? <Badge tone="danger">Disputed</Badge> : null}
+                  </div>
                   <div className="mt-1 text-xs text-stone-500">
                     {r.paymentMethod ? `${OFFLINE_METHOD_LABELS[r.paymentMethod as keyof typeof OFFLINE_METHOD_LABELS] ?? "Online"}` : ""}
-                    {r.amountPaidCents !== null && r.paymentStatus === "paid"
+                    {r.amountPaidCents !== null && (r.paymentStatus === "paid" || r.paymentStatus === "refunded")
                       ? ` · ${formatCents(r.amountPaidCents)}`
                       : ` · fee ${formatCents(r.feeCents)}`}
                   </div>
+                  {r.refundedCents > 0 ? (
+                    <div className="text-xs font-medium text-rose-800" data-testid="refunded-amount">
+                      Refunded {formatCents(r.refundedCents)}
+                    </div>
+                  ) : null}
                   {r.reference ? <div className="text-xs text-stone-500">{r.reference}</div> : null}
                   {r.paidAt ? <div className="text-xs text-stone-400">{formatDate(r.paidAt)}</div> : null}
                 </TD>
@@ -154,8 +172,14 @@ export function RosterTable({
                 </TD>
                 {canManage ? (
                   <TD className="text-right">
-                    {r.cancelledAt ? null : (
-                      <div className="flex flex-wrap justify-end gap-1.5">
+                    <div className="flex flex-wrap justify-end gap-1.5">
+                      {canRefund(r) ? (
+                        <Button size="sm" variant="secondary" onClick={() => setDialog({ kind: "refund", row: r })}>
+                          Refund
+                        </Button>
+                      ) : null}
+                      {r.cancelledAt ? null : (
+                        <>
                         {r.paymentStatus === "unpaid" ? (
                           <Button size="sm" onClick={() => setDialog({ kind: "pay", row: r })}>
                             Record payment
@@ -172,8 +196,9 @@ export function RosterTable({
                         <Button size="sm" variant="ghost" onClick={() => setDialog({ kind: "cancel", row: r })}>
                           Cancel
                         </Button>
-                      </div>
-                    )}
+                        </>
+                      )}
+                    </div>
                   </TD>
                 ) : null}
               </TR>
@@ -197,6 +222,14 @@ export function RosterTable({
         description={dialog?.row.athleteName}
       >
         {dialog?.kind === "cancel" ? <CancelForm row={dialog.row} basePath={basePath} onDone={close} /> : null}
+      </Modal>
+      <Modal
+        open={dialog?.kind === "refund"}
+        onClose={close}
+        title="Refund payment"
+        description={dialog ? `${dialog.row.athleteName} · paid ${formatCents(dialog.row.amountPaidCents ?? 0)}` : undefined}
+      >
+        {dialog?.kind === "refund" ? <RefundForm row={dialog.row} basePath={basePath} onDone={close} /> : null}
       </Modal>
       <Modal
         open={dialog?.kind === "void"}
@@ -289,7 +322,9 @@ function CancelForm({ row, basePath, onDone }: { row: RosterRow; basePath: strin
       <input type="hidden" name="path" value={basePath} />
       {paid ? (
         <p className="rounded-xl bg-amber-soft/40 px-3.5 py-2.5 text-xs font-medium text-amber-950">
-          This registration is marked paid. Record a refund outside the app (Sprint 3b adds Stripe refunds).
+          {row.paymentMethod === "stripe"
+            ? "This registration was paid by card. Cancelling does not refund it; use Refund on the roster to return the money."
+            : "This registration was paid offline. Cancelling does not return the money; refund the family outside the app."}
         </p>
       ) : null}
       <Field label="Reason">
@@ -339,6 +374,47 @@ function VoidForm({ row, basePath, onDone }: { row: RosterRow; basePath: string;
         </Button>
         <Button type="submit" variant="danger" disabled={pending}>
           {pending ? "Voiding..." : "Void payment"}
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+function RefundForm({ row, basePath, onDone }: { row: RosterRow; basePath: string; onDone: () => void }) {
+  const toast = useToast();
+  const router = useRouter();
+  const { state, pending, onSubmit } = useActionForm(refundRegistrationAction);
+  const remaining = (row.amountPaidCents ?? 0) - row.refundedCents;
+
+  useEffect(() => {
+    if (state?.ok) {
+      toast.success("Refund submitted", "It will appear here once Stripe confirms.");
+      router.refresh();
+      onDone();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state]);
+
+  return (
+    <form onSubmit={onSubmit} className="space-y-4" aria-busy={pending}>
+      <input type="hidden" name="registrationId" value={row.registrationId} />
+      <input type="hidden" name="path" value={basePath} />
+      <Field
+        label="Refund amount ($)"
+        hint={`Up to ${formatCents(remaining)}. Partial refunds are fine; any platform fee is returned proportionally.`}
+      >
+        <Input name="amount" inputMode="decimal" defaultValue={(remaining / 100).toFixed(2)} disabled={pending} required />
+      </Field>
+      <Field label="Reason (kept in the audit log)">
+        <Textarea name="reason" rows={3} maxLength={500} required disabled={pending} />
+      </Field>
+      <FormError state={state} />
+      <div className="flex items-center justify-end gap-2.5">
+        <Button variant="ghost" onClick={onDone} disabled={pending}>
+          Close
+        </Button>
+        <Button type="submit" variant="danger" disabled={pending}>
+          {pending ? "Submitting..." : "Refund"}
         </Button>
       </div>
     </form>

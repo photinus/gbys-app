@@ -245,3 +245,40 @@ export async function sendContactSubmissionEmail({
   }
   await nuntly.emails.send({ from: fromAddress(), to, subject, html, reply_to: replyTo });
 }
+
+/**
+ * Tells program admins a card dispute (chargeback) was opened. Every interpolated
+ * value is escaped; links to the program's payments ledger.
+ */
+export async function sendPaymentDisputeEmail({
+  to,
+  programName,
+  athleteName,
+  amountText,
+  reason,
+  ledgerUrl,
+}: {
+  to: string[];
+  programName: string;
+  athleteName: string;
+  amountText: string;
+  reason: string;
+  ledgerUrl: string;
+}) {
+  if (to.length === 0) return;
+  const clean = (s: string, max: number) => s.replace(/[\u0000-\u001f\u007f]+/g, " ").trim().slice(0, max);
+  const subject = `Payment dispute opened: ${clean(programName, 80)}`;
+  const html = layout(`
+        <h2>A card payment was disputed</h2>
+        <p>A family disputed a card payment for <strong>${escapeHtml(athleteName)}</strong> in <strong>${escapeHtml(programName)}</strong>.</p>
+        <p style="background: #f1f5f9; padding: 12px; border-radius: 6px;">Amount: <strong>${escapeHtml(amountText)}</strong><br>Reason given: ${escapeHtml(reason)}</p>
+        <p>Respond with evidence in the Stripe dashboard before the deadline Stripe shows there. You can review the payment history in the ledger.</p>
+        ${button(ledgerUrl, "Open payments ledger")}
+    `);
+  const nuntly = getClient();
+  if (!nuntly) {
+    console.log(`[EMAIL not sent: NUNTLY_API_KEY missing] to=${to.join(",")} subject="${subject}"\n${html}`);
+    return;
+  }
+  await nuntly.emails.send({ from: fromAddress(), to, subject, html });
+}

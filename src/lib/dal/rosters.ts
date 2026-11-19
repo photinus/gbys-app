@@ -4,6 +4,7 @@ import { db } from "@/db";
 import {
   athletes,
   householdGuardians,
+  paymentEvents,
   programRoles,
   programs,
   registrations,
@@ -29,7 +30,8 @@ import { DalError, isBoard, type SessionContext } from "./context";
 import { PROGRAM_STAFF_ROLES, assertProgramReachable, canManageProgram, canViewSeasonRoster, canViewTeam } from "./permissions";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const REFUND_WARNING = "Record a refund outside the app (Sprint 3b adds Stripe refunds).";
+const REFUND_WARNING_OFFLINE = "This registration was paid offline. Return the money outside the app.";
+const REFUND_WARNING_STRIPE = "This registration was paid by card. Use Refund on the roster to return the money.";
 
 function parseId(id: string, what: string): string {
   if (!UUID_RE.test(id)) throw new DalError("NOT_FOUND", `${what} not found.`);
@@ -67,6 +69,10 @@ export interface RosterRow {
   paymentMethod: "stripe" | "cash" | "check" | "scholarship" | null;
   amountPaidCents: number | null;
   paidAt: Date | null;
+  /** Total refunded so far (cents), mirrored from Stripe by the webhook. */
+  refundedCents: number;
+  /** Set while/after a card dispute is open. */
+  disputedAt: Date | null;
   reference: string | null;
   waiver: { version: string; signedAt: Date } | null;
   registeredAt: Date;
@@ -179,6 +185,8 @@ export async function listSeasonRegistrations(
       paymentMethod: registrations.paymentMethod,
       amountPaidCents: registrations.amountPaidCents,
       paidAt: registrations.paidAt,
+      refundedCents: registrations.refundedCents,
+      disputedAt: registrations.disputedAt,
       reference: registrations.offlineReferenceNote,
       registeredAt: registrations.createdAt,
       cancelledAt: registrations.deletedAt,
@@ -222,6 +230,8 @@ export async function listSeasonRegistrations(
     paymentMethod: r.paymentMethod,
     amountPaidCents: r.amountPaidCents,
     paidAt: r.paidAt,
+    refundedCents: r.refundedCents,
+    disputedAt: r.disputedAt,
     reference: r.reference,
     waiver: waiverByReg.get(r.registrationId) ?? null,
     registeredAt: r.registeredAt,
@@ -237,7 +247,7 @@ export async function listSeasonRegistrations(
     unpaid: live.filter((r) => !isPaid(r)).length,
     collectedCents: live
       .filter((r) => r.paymentStatus === "paid")
-      .reduce((n, r) => n + (r.amountPaidCents ?? 0), 0),
+      .reduce((n, r) => n + Math.max(0, (r.amountPaidCents ?? 0) - r.refundedCents), 0),
   };
 
   let rows: RosterRow[];
@@ -345,6 +355,16 @@ export async function recordOfflinePayment(
         offlineReferenceNote: data.reference || null,
       })
       .where(eq(registrations.id, row.id));
+    await tx.insert(paymentEvents).values({
+      registrationId: row.id,
+      programId: row.programId,
+      kind: "offline_payment",
+      amountCents: amount,
+      method: data.method,
+      note: data.reference || null,
+      recordedByUserId: ctx.userId,
+      occurredAt: now,
+    });
     await writeAudit(
       {
         actorUserId: ctx.userId,
@@ -376,7 +396,7 @@ export async function voidOfflinePayment(
     if (!row) throw new DalError("NOT_FOUND", "Registration not found.");
     if (row.deletedAt) throw new DalError("INVALID", "This registration was cancelled.");
     if (row.paymentMethod === "stripe" || row.stripePaymentIntentId) {
-      throw new DalError("INVALID", "Online payments cannot be voided here. Refunds arrive in Sprint 3b.");
+      throw new DalError("INVALID", "Card payments cannot be voided. Use Refund on the roster instead.");
     }
     if (
       (row.paymentStatus !== "paid" && row.paymentStatus !== "waived_scholarship") ||
@@ -395,6 +415,15 @@ export async function voidOfflinePayment(
         offlineReferenceNote: null,
       })
       .where(eq(registrations.id, row.id));
+    await tx.insert(paymentEvents).values({
+      registrationId: row.id,
+      programId: row.programId,
+      kind: "offline_void",
+      amountCents: row.amountPaidCents ?? 0,
+      method: row.paymentMethod,
+      note: why,
+      recordedByUserId: ctx.userId,
+    });
     await writeAudit(
       {
         actorUserId: ctx.userId,
@@ -461,7 +490,7 @@ export async function cancelRegistration(
       },
       tx
     );
-    return { warning: wasPaid ? REFUND_WARNING : null };
+    return { warning: wasPaid && row.paymentStatus !== "refunded" ? (row.paymentMethod === "stripe" ? REFUND_WARNING_STRIPE : REFUND_WARNING_OFFLINE) : null };
   });
 }
 
