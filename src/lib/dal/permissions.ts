@@ -60,7 +60,13 @@ export function canViewRoster(ctx: SessionContext, programId: string): boolean {
 export function staffProgramIds(ctx: SessionContext): "all" | string[] {
   if (isBoard(ctx)) return "all";
   const staff: readonly string[] = PROGRAM_STAFF_ROLES;
-  return [...new Set(ctx.programRoles.filter((g) => staff.includes(g.role)).map((g) => g.programId))];
+  return [
+    ...new Set([
+      ...ctx.programRoles.filter((g) => staff.includes(g.role)).map((g) => g.programId),
+      // Team-only staff (assigned to a team without a program-level role) still reach the hub.
+      ...ctx.teamStaff.map((t) => t.programId),
+    ]),
+  ];
 }
 
 /** Whether to show the "My programs" nav entry. */

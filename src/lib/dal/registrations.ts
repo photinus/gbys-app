@@ -1,5 +1,5 @@
 import "server-only";
-import { and, asc, desc, eq, isNull, lte, or, gt, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, lte, or, gt, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   athletes,
@@ -8,6 +8,7 @@ import {
   registrations,
   seasons,
   signedWaivers,
+  teamPlayers,
   users,
   waiverVersions,
 } from "@/db/schema";
@@ -18,7 +19,7 @@ import { utcToLaDateInput } from "@/lib/format";
 import { registrationSubmitSchema } from "@/lib/validation/registration";
 import { hashWaiverBody } from "@/lib/waiver";
 import { DalError, type SessionContext } from "./context";
-import { canViewRoster } from "./permissions";
+import { canViewSeasonRoster } from "./permissions";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 function assertUuid(id: string, what = "record"): void {
@@ -678,14 +679,26 @@ export async function getSignedWaiver(ctx: SessionContext, registrationId: strin
     .limit(1);
   if (!row) throw new DalError("NOT_FOUND", "That signed waiver was not found.");
 
-  const staff = canViewRoster(ctx, row.programId);
+  // Season-roster viewers (program admin / board) see the full record including IP and user agent.
+  const staff = canViewSeasonRoster(ctx, row.programId);
   if (!staff) {
     const [link] = await db
       .select({ id: householdGuardians.id })
       .from(householdGuardians)
       .where(and(eq(householdGuardians.athleteId, row.athleteId), eq(householdGuardians.userId, ctx.userId)))
       .limit(1);
-    if (!link) throw new DalError("NOT_FOUND", "That signed waiver was not found.");
+    if (!link) {
+      // Staff of a team this registration is live on may read the signed text (no IP / user agent).
+      const teamIds = [...new Set(ctx.teamStaff.map((t) => t.teamId))];
+      const [onTeam] = teamIds.length
+        ? await db
+            .select({ id: teamPlayers.id })
+            .from(teamPlayers)
+            .where(and(eq(teamPlayers.registrationId, registrationId), isNull(teamPlayers.removedAt), inArray(teamPlayers.teamId, teamIds)))
+            .limit(1)
+        : [];
+      if (!onTeam) throw new DalError("NOT_FOUND", "That signed waiver was not found.");
+    }
   }
 
   const recomputed = hashWaiverBody(row.body);

@@ -1,13 +1,13 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import { db } from "@/db";
-import { athletes, householdGuardians, programs, registrations, seasons, users } from "@/db/schema";
+import { athletes, householdGuardians, programs, registrations, seasons, teamPlayers, users } from "@/db/schema";
 import { writeAudit } from "@/lib/audit";
 import { PhotoError, processPhoto } from "@/lib/image";
 import { deletePrivateObject, getPrivateObject, putPrivateObject } from "@/lib/storage";
 import { DalError, isBoard, type SessionContext } from "./context";
-import { canViewRoster } from "./permissions";
+import { canManageProgram } from "./permissions";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const USER_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
@@ -48,8 +48,9 @@ async function process(buf: Buffer, size: 512 | 800): Promise<Buffer> {
 // Access
 // ---------------------------------------------------------------------------
 /**
- * Guardian of the athlete, the board, or program staff of a program where the
- * athlete has a live registration (Phase 2 narrows this to team staff).
+ * Guardian of the athlete, the board, a program admin of a program where the athlete has a
+ * live registration, or staff of a team that has one of the athlete's live registrations on
+ * its roster. Head coaches with only a program-level role (no team) get NO access.
  * Returns false (never throws) so callers can answer 404 without leaking existence.
  */
 export async function canViewAthletePhoto(ctx: SessionContext, athleteId: string): Promise<boolean> {
@@ -69,15 +70,41 @@ export async function canViewAthletePhoto(ctx: SessionContext, athleteId: string
     .limit(1);
   if (link) return true;
 
-  const staffProgramIds = new Set(ctx.programRoles.map((g) => g.programId));
-  if (staffProgramIds.size === 0) return false;
-  const regs = await db
-    .select({ programId: programs.id, active: programs.isActive })
-    .from(registrations)
-    .innerJoin(seasons, eq(seasons.id, registrations.seasonId))
-    .innerJoin(programs, eq(programs.id, seasons.programId))
-    .where(and(eq(registrations.athleteId, athleteId), isNull(registrations.deletedAt), isNull(programs.deletedAt)));
-  return regs.some((r) => r.active && staffProgramIds.has(r.programId) && canViewRoster(ctx, r.programId));
+  const adminProgramIds = new Set(ctx.programRoles.filter((g) => g.role === "program_admin").map((g) => g.programId));
+  const teamIds = [...new Set(ctx.teamStaff.map((t) => t.teamId))];
+  if (adminProgramIds.size === 0 && teamIds.length === 0) return false;
+
+  if (adminProgramIds.size > 0) {
+    const regs = await db
+      .select({ programId: programs.id, active: programs.isActive })
+      .from(registrations)
+      .innerJoin(seasons, eq(seasons.id, registrations.seasonId))
+      .innerJoin(programs, eq(programs.id, seasons.programId))
+      .where(and(eq(registrations.athleteId, athleteId), isNull(registrations.deletedAt), isNull(programs.deletedAt)));
+    if (regs.some((r) => r.active && adminProgramIds.has(r.programId) && canManageProgram(ctx, r.programId))) return true;
+  }
+
+  if (teamIds.length > 0) {
+    const [onTeam] = await db
+      .select({ id: teamPlayers.id })
+      .from(teamPlayers)
+      .innerJoin(registrations, eq(registrations.id, teamPlayers.registrationId))
+      .innerJoin(seasons, eq(seasons.id, registrations.seasonId))
+      .innerJoin(programs, eq(programs.id, seasons.programId))
+      .where(
+        and(
+          eq(registrations.athleteId, athleteId),
+          isNull(registrations.deletedAt),
+          isNull(teamPlayers.removedAt),
+          inArray(teamPlayers.teamId, teamIds),
+          eq(programs.isActive, true),
+          isNull(programs.deletedAt)
+        )
+      )
+      .limit(1);
+    if (onTeam) return true;
+  }
+  return false;
 }
 
 /** Photo bytes for the media route, or null (no access / no photo: indistinguishable to the caller). */

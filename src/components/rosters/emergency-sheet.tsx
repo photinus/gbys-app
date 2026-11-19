@@ -31,10 +31,14 @@ export function EmergencySheetView({ sheet }: { sheet: EmergencySheet }) {
       <div className="space-y-2">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-wider text-stone-500">Team emergency sheet</p>
+            <p className="text-xs font-semibold uppercase tracking-wider text-stone-500">
+              {sheet.team ? "Team emergency sheet" : "Season emergency sheet"}
+            </p>
             <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
+              {sheet.team ? `${sheet.team.name} · ` : ""}
               {sheet.header.programName} · {sheet.header.seasonName}
             </h1>
+            {sheet.team?.division ? <p className="text-sm text-stone-600">{sheet.team.division}</p> : null}
             <p className="mt-1 text-sm text-stone-600">
               {sheet.athletes.length} athletes · {alerts} with medical notes · generated{" "}
               <span data-testid="generated-at">{formatDateTime(sheet.generatedAt)}</span>
@@ -54,7 +58,7 @@ export function EmergencySheetView({ sheet }: { sheet: EmergencySheet }) {
 
       {sheet.staff.length > 0 ? (
         <section className="rounded-2xl border-2 border-charcoal bg-white p-4">
-          <h2 className="text-sm font-bold uppercase tracking-wider text-stone-500">Program staff</h2>
+          <h2 className="text-sm font-bold uppercase tracking-wider text-stone-500">{sheet.team ? "Team staff" : "Program staff"}</h2>
           <ul className="mt-2 grid gap-2 sm:grid-cols-2">
             {sheet.staff.map((s, i) => (
               <li key={`${s.name}-${s.role}-${i}`} className="flex flex-wrap items-center justify-between gap-2">

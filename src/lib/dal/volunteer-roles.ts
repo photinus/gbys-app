@@ -25,7 +25,7 @@ import {
   type RoleInput,
 } from "@/lib/validation/volunteer-roles";
 import { DalError, isBoard, type ProgramRole, type SessionContext } from "./context";
-import { assertProgramReachable, canViewRoster } from "./permissions";
+import { assertProgramReachable, canViewProgramHub } from "./permissions";
 import {
   canManageVolunteerRole,
   getAssignmentProgress,
@@ -160,7 +160,7 @@ async function loadProgram(ctx: SessionContext, programId: string) {
 async function authorizeScope(ctx: SessionContext, scope: RoleScope) {
   if ("programId" in scope) {
     await loadProgram(ctx, scope.programId);
-    if (!canViewRoster(ctx, scope.programId)) throw forbidden();
+    if (!canViewProgramHub(ctx, scope.programId)) throw forbidden();
     return;
   }
   if (!isBoard(ctx)) throw forbidden();
@@ -197,7 +197,7 @@ export async function getProgramForRoles(ctx: SessionContext, slug: string) {
     .where(and(eq(programs.slug, slug), isNull(programs.deletedAt)))
     .limit(1);
   if (!program || (!program.isActive && !isBoard(ctx))) throw new DalError("NOT_FOUND", "Program not found.");
-  if (!canViewRoster(ctx, program.id)) throw forbidden();
+  if (!canViewProgramHub(ctx, program.id)) throw forbidden();
   return { program, canManage: canManageVolunteerRole(ctx, program.id) };
 }
 
@@ -249,7 +249,7 @@ export async function listRoleCredentialOptions(
   programId: string | null,
   alreadyRequired: string[] = []
 ): Promise<RoleCredentialOption[]> {
-  if (programId === null ? !isBoard(ctx) : !canViewRoster(ctx, parseId(programId, "Program"))) throw forbidden();
+  if (programId === null ? !isBoard(ctx) : !canViewProgramHub(ctx, parseId(programId, "Program"))) throw forbidden();
   const rows = await db
     .select({ id: credentialDefinitions.id, name: credentialDefinitions.name, isActive: credentialDefinitions.isActive })
     .from(credentialDefinitions)
