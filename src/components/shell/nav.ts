@@ -26,7 +26,8 @@ export type NavIconKey =
   | "audit"
   | "board"
   | "boardAdmin"
-  | "boardVotes";
+  | "boardVotes"
+  | "contact";
 
 export interface NavItem {
   label: string;
@@ -108,6 +109,7 @@ export function getNavGroups(orgRole: OrgRole, opts: NavOptions = {}): NavGroup[
             { label: "Programs", href: "/admin/programs", icon: "programs" },
             { label: "Settings", href: "/admin/settings", icon: "settings" },
             { label: "Board of Directors", href: "/admin/board", icon: "boardAdmin" },
+            { label: "Contact forms", href: "/admin/contact", icon: "contact" },
             { label: "Audit log", href: "/admin/audit", icon: "audit" },
           ]
         : [],

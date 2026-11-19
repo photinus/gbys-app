@@ -83,7 +83,11 @@ export type AuditAction =
   | "board_motion.opened"
   | "board_motion.closed"
   | "board_motion.withdrawn"
-  | "board_vote.cast";
+  | "board_vote.cast"
+  | "contact_form.created"
+  | "contact_form.updated"
+  | "contact_submission.status_changed"
+  | "contact_submission.deleted";
 
 export type AuditTarget =
   | "athlete"
@@ -111,7 +115,9 @@ export type AuditTarget =
   | "board_meeting"
   | "board_minutes"
   | "board_motion"
-  | "board_vote";
+  | "board_vote"
+  | "contact_form"
+  | "contact_submission";
 
 export async function writeAudit(
   e: {
