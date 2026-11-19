@@ -8,4 +8,5 @@ export * from "./facilities";
 export * from "./settings";
 export * from "./board";
 export * from "./contact";
+export * from "./teams";
 export * from "./relations";

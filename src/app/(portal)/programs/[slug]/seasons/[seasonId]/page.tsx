@@ -38,6 +38,7 @@ export default async function SeasonPage({ params }: { params: Promise<{ slug: s
           </div>
           <p className="mt-1 text-sm text-stone-500">{data.canManage ? "Edit this season." : "Read-only view."}</p>
         </div>
+        {data.canManage ? (
         <div className="flex flex-wrap gap-2">
           <Link href={`${base}/seasons/${seasonId}/registrations`} className={buttonStyles({ variant: "secondary", size: "sm" })}>
             Registrations
@@ -46,6 +47,7 @@ export default async function SeasonPage({ params }: { params: Promise<{ slug: s
             Emergency sheet
           </Link>
         </div>
+        ) : null}
       </div>
       {data.canManage ? (
         <SeasonEditor

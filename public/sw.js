@@ -18,7 +18,9 @@ const STATIC_CACHE = "gbys-static-v1";
 const SW_CLEAR_MESSAGE = "GBYS_CLEAR_SENSITIVE_CACHES";
 const CACHED_AT_HEADER = "x-gbys-cached-at";
 const MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000;
-const EMERGENCY_PATH = /^\/programs\/[a-z0-9-]+\/seasons\/[0-9a-f-]{36}\/emergency\/?$/i;
+// Season emergency sheet (program admins) and team emergency sheet (team staff).
+const EMERGENCY_PATH =
+  /^\/programs\/[a-z0-9-]+\/(?:seasons|teams)\/[0-9a-f-]{36}\/emergency\/?$/i;
 // Athlete photos are cached ONLY when requested by an emergency sheet page (same
 // cache, same 14-day expiry, purged on sign-out) so coaches can identify kids offline.
 const ATHLETE_PHOTO_PATH = /^\/media\/athlete\/[0-9a-f-]{36}\/?$/i;

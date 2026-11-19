@@ -34,6 +34,8 @@ export const config = {
     "/admin/:path*",
     "/registrations/:path*",
     "/programs/:path*",
+    "/teams/:path*",
+    "/schedule/:path*",
     "/embed/:path*",
   ],
 };

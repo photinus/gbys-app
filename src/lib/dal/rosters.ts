@@ -9,6 +9,9 @@ import {
   registrations,
   seasons,
   signedWaivers,
+  teamPlayers,
+  teamStaff,
+  teams,
   users,
 } from "@/db/schema";
 import type { EmergencyContact } from "@/db/schema/household";
@@ -23,7 +26,7 @@ import {
   type RosterFilter,
 } from "@/lib/validation/rosters";
 import { DalError, isBoard, type SessionContext } from "./context";
-import { PROGRAM_STAFF_ROLES, assertProgramReachable, canManageProgram, canViewRoster } from "./permissions";
+import { PROGRAM_STAFF_ROLES, assertProgramReachable, canManageProgram, canViewSeasonRoster, canViewTeam } from "./permissions";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const REFUND_WARNING = "Record a refund outside the app (Sprint 3b adds Stripe refunds).";
@@ -100,6 +103,8 @@ export interface EmergencyAthlete {
 
 export interface EmergencySheet {
   header: SeasonHeader;
+  /** Set for a team emergency sheet (players limited to the team; staff are the team's staff). */
+  team?: { id: string; name: string; division: string | null };
   generatedAt: Date;
   athletes: EmergencyAthlete[];
   staff: { name: string; phone: string | null; role: string }[];
@@ -125,8 +130,9 @@ async function loadSeasonHeader(ctx: SessionContext, seasonId: string): Promise<
     .innerJoin(programs, eq(programs.id, seasons.programId))
     .where(and(eq(seasons.id, id), isNull(programs.deletedAt)))
     .limit(1);
-  // Hide existence from people who cannot see the roster.
-  if (!s || !canViewRoster(ctx, s.programId)) throw new DalError("NOT_FOUND", "Season not found.");
+  // Whole-season roster / emergency data: program admins and the board only (coaches use their team's sheet).
+  // Hide existence from everyone else.
+  if (!s || !canViewSeasonRoster(ctx, s.programId)) throw new DalError("NOT_FOUND", "Season not found.");
   // Inactive programs are board-only.
   if (!s.programActive && !isBoard(ctx)) throw new DalError("NOT_FOUND", "Season not found.");
   const { form, ...rest } = s;
@@ -433,6 +439,11 @@ export async function cancelRegistration(
       .update(registrations)
       .set({ deletedAt: new Date(), deletedByUserId: ctx.userId, cancellationReason: why })
       .where(eq(registrations.id, row.id));
+    // A cancelled registration leaves its team (history kept via removedAt).
+    await tx
+      .update(teamPlayers)
+      .set({ removedAt: new Date(), removedByUserId: ctx.userId })
+      .where(and(eq(teamPlayers.registrationId, row.id), isNull(teamPlayers.removedAt)));
     await writeAudit(
       {
         actorUserId: ctx.userId,
@@ -457,6 +468,53 @@ export async function cancelRegistration(
 // ---------------------------------------------------------------------------
 // Emergency sheet (medical data; audited)
 // ---------------------------------------------------------------------------
+
+type EmergencyDbRow = {
+  registrationId: string;
+  athleteId: string;
+  firstName: string;
+  lastName: string;
+  dateOfBirth: string;
+  photoObjectKey: string | null;
+  photoUpdatedAt: Date | null;
+  medicalNotes: string | null;
+  emergencyContacts: EmergencyContact[] | null;
+};
+
+async function loadGuardiansByAthlete(athleteIds: string[]): Promise<Map<string, EmergencyAthlete["guardians"]>> {
+  const guardianRows = athleteIds.length
+    ? await db
+        .select({
+          athleteId: householdGuardians.athleteId,
+          name: users.name,
+          phone: users.phone,
+          relationship: householdGuardians.relationship,
+          receivesComms: householdGuardians.receivesComms,
+        })
+        .from(householdGuardians)
+        .innerJoin(users, eq(users.id, householdGuardians.userId))
+        .where(and(inArray(householdGuardians.athleteId, athleteIds), isNull(users.deletedAt)))
+        .orderBy(sql`${householdGuardians.receivesComms} desc`, asc(householdGuardians.createdAt))
+    : [];
+  const byAthlete = new Map<string, EmergencyAthlete["guardians"]>();
+  for (const g of guardianRows) {
+    const list = byAthlete.get(g.athleteId) ?? [];
+    list.push({ name: g.name, phone: g.phone, relationship: g.relationship });
+    byAthlete.set(g.athleteId, list);
+  }
+  return byAthlete;
+}
+
+function toEmergencyAthletes(rows: EmergencyDbRow[], byAthlete: Map<string, EmergencyAthlete["guardians"]>): EmergencyAthlete[] {
+  return rows.map(({ photoObjectKey, photoUpdatedAt, ...r }) => ({
+    ...r,
+    photoUrl: athletePhotoUrl({ id: r.athleteId, photoObjectKey, photoUpdatedAt }),
+    age: ageFromDob(r.dateOfBirth),
+    emergencyContacts: r.emergencyContacts ?? [],
+    guardians: byAthlete.get(r.athleteId) ?? [],
+  }));
+}
+
 export async function getEmergencySheet(
   ctx: SessionContext,
   seasonId: string,
@@ -491,27 +549,7 @@ export async function getEmergencySheet(
     )
     .orderBy(asc(athletes.lastName), asc(athletes.firstName));
 
-  const athleteIds = rows.map((r) => r.athleteId);
-  const guardianRows = athleteIds.length
-    ? await db
-        .select({
-          athleteId: householdGuardians.athleteId,
-          name: users.name,
-          phone: users.phone,
-          relationship: householdGuardians.relationship,
-          receivesComms: householdGuardians.receivesComms,
-        })
-        .from(householdGuardians)
-        .innerJoin(users, eq(users.id, householdGuardians.userId))
-        .where(and(inArray(householdGuardians.athleteId, athleteIds), isNull(users.deletedAt)))
-        .orderBy(sql`${householdGuardians.receivesComms} desc`, asc(householdGuardians.createdAt))
-    : [];
-  const byAthlete = new Map<string, EmergencyAthlete["guardians"]>();
-  for (const g of guardianRows) {
-    const list = byAthlete.get(g.athleteId) ?? [];
-    list.push({ name: g.name, phone: g.phone, relationship: g.relationship });
-    byAthlete.set(g.athleteId, list);
-  }
+  const byAthlete = await loadGuardiansByAthlete(rows.map((r) => r.athleteId));
 
   const staffRows = await db
     .select({ name: users.name, phone: users.phone, role: programRoles.role })
@@ -527,13 +565,7 @@ export async function getEmergencySheet(
     )
     .orderBy(asc(users.name));
 
-  const athleteList: EmergencyAthlete[] = rows.map(({ photoObjectKey, photoUpdatedAt, ...r }) => ({
-    ...r,
-    photoUrl: athletePhotoUrl({ id: r.athleteId, photoObjectKey, photoUpdatedAt }),
-    age: ageFromDob(r.dateOfBirth),
-    emergencyContacts: r.emergencyContacts ?? [],
-    guardians: byAthlete.get(r.athleteId) ?? [],
-  }));
+  const athleteList = toEmergencyAthletes(rows, byAthlete);
 
   // One audit row per view. If this fails, the medical data is not returned.
   await writeAudit({
@@ -547,4 +579,95 @@ export async function getEmergencySheet(
   const { customFormSchema: _omit, ...pub } = header;
   void _omit;
   return { header: pub, generatedAt: new Date(), athletes: athleteList, staff: staffRows };
+}
+
+// ---------------------------------------------------------------------------
+// Team emergency sheet (team staff see their own team only)
+// ---------------------------------------------------------------------------
+export async function getTeamEmergencySheet(
+  ctx: SessionContext,
+  teamId: string,
+  expectedProgramSlug?: string
+): Promise<EmergencySheet> {
+  const id = parseId(teamId, "Team");
+  const [t] = await db
+    .select({
+      teamId: teams.id,
+      teamName: teams.name,
+      division: teams.division,
+      seasonId: seasons.id,
+      seasonName: seasons.name,
+      programId: programs.id,
+      programName: programs.name,
+      programSlug: programs.slug,
+      programActive: programs.isActive,
+      feeCents: seasons.baseFeeCents,
+    })
+    .from(teams)
+    .innerJoin(seasons, eq(seasons.id, teams.seasonId))
+    .innerJoin(programs, eq(programs.id, teams.programId))
+    .where(and(eq(teams.id, id), isNull(programs.deletedAt)))
+    .limit(1);
+  // Team staff, program admins and the board only; everyone else gets a 404.
+  if (!t || !canViewTeam(ctx, { id: t.teamId, programId: t.programId })) throw new DalError("NOT_FOUND", "Team not found.");
+  if (!t.programActive && !isBoard(ctx)) throw new DalError("NOT_FOUND", "Team not found.");
+  // Reject a mismatched URL before any medical data is read or audited.
+  if (expectedProgramSlug !== undefined && t.programSlug !== expectedProgramSlug) {
+    throw new DalError("NOT_FOUND", "Team not found.");
+  }
+
+  const rows = await db
+    .select({
+      registrationId: registrations.id,
+      athleteId: athletes.id,
+      firstName: athletes.firstName,
+      lastName: athletes.lastName,
+      dateOfBirth: athletes.dateOfBirth,
+      photoObjectKey: athletes.photoObjectKey,
+      photoUpdatedAt: athletes.photoUpdatedAt,
+      medicalNotes: athletes.medicalNotes,
+      emergencyContacts: athletes.emergencyContacts,
+    })
+    .from(teamPlayers)
+    .innerJoin(registrations, eq(registrations.id, teamPlayers.registrationId))
+    .innerJoin(athletes, eq(athletes.id, registrations.athleteId))
+    .where(and(eq(teamPlayers.teamId, t.teamId), isNull(teamPlayers.removedAt), isNull(registrations.deletedAt), isNull(athletes.deletedAt)))
+    .orderBy(asc(athletes.lastName), asc(athletes.firstName));
+
+  const byAthlete = await loadGuardiansByAthlete(rows.map((r) => r.athleteId));
+  const staffRows = await db
+    .select({ name: users.name, phone: users.phone, role: teamStaff.role })
+    .from(teamStaff)
+    .innerJoin(users, eq(users.id, teamStaff.userId))
+    .where(and(eq(teamStaff.teamId, t.teamId), isNull(teamStaff.removedAt), isNull(users.deletedAt)))
+    .orderBy(asc(users.name));
+
+  const athleteList = toEmergencyAthletes(rows, byAthlete);
+
+  // One audit row per view. If this fails, the medical data is not returned.
+  await writeAudit({
+    actorUserId: ctx.userId,
+    action: "medical.viewed",
+    targetType: "team",
+    targetId: t.teamId,
+    metadata: { teamId: t.teamId, seasonId: t.seasonId, athleteCount: athleteList.length },
+  });
+
+  return {
+    header: {
+      seasonId: t.seasonId,
+      seasonName: t.seasonName,
+      programId: t.programId,
+      programName: t.programName,
+      programSlug: t.programSlug,
+      programActive: t.programActive,
+      feeCents: t.feeCents,
+      canManage: canManageProgram(ctx, t.programId),
+      isBoard: isBoard(ctx),
+    },
+    team: { id: t.teamId, name: t.teamName, division: t.division },
+    generatedAt: new Date(),
+    athletes: athleteList,
+    staff: staffRows,
+  };
 }

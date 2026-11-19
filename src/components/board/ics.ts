@@ -18,7 +18,7 @@ function utcStamp(d: Date): string {
 }
 
 function esc(s: string): string {
-  return s.replace(/\r\n?/g, "\n").replace(/\\/g, "\\\\").replace(/;/g, "\;").replace(/,/g, "\\,").replace(/\n/g, "\\n");
+  return s.replace(/\r\n?/g, "\n").replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\n/g, "\\n");
 }
 
 /** Fold a content line to 75 octets, never splitting a UTF-8 character. */

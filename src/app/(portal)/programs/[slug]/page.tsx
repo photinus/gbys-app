@@ -22,7 +22,8 @@ export default async function ProgramHubPage({ params }: { params: Promise<{ slu
     if (e instanceof DalError) notFound();
     throw e;
   }
-  const { program, seasons, canManage } = hub;
+  const { program, seasons, canManage, canViewSeasonRoster, canViewSeasonConfig, myTeams } = hub;
+  const showOpenColumn = canViewSeasonRoster || canViewSeasonConfig;
   const roleSummary = await getProgramRoleSummary(ctx, program.id);
   const newContact = canManage ? await countNewSubmissions(ctx, { programId: program.id }) : null;
   const base = `/programs/${program.slug}`;
@@ -54,12 +55,55 @@ export default async function ProgramHubPage({ params }: { params: Promise<{ slu
             </Link>
           ) : null}
           {canManage ? (
+            <Link href={`${base}/schedule`} data-testid="program-schedule-link" className={buttonStyles({ size: "sm", variant: "secondary" })}>
+              Facility schedule
+            </Link>
+          ) : null}
+          {canManage ? (
             <Link href={`${base}/seasons/new`} className={buttonStyles({ size: "sm" })}>
               New season
             </Link>
           ) : null}
         </div>
       </div>
+
+      {myTeams.length > 0 || !canViewSeasonRoster ? (
+        <Card data-testid="your-teams">
+          <CardHeader title="Your teams" description="Rosters, emergency sheets and schedules for the teams you coach or manage" />
+          {myTeams.length === 0 ? (
+            <p className="text-sm text-stone-500" data-testid="no-teams">
+              You&apos;re not assigned to a team yet. A program admin can add you to a team.
+            </p>
+          ) : (
+            <ul className="divide-y divide-line-soft">
+              {myTeams.map((t) => (
+                <li key={t.id} className="flex flex-wrap items-center justify-between gap-2 py-2.5" data-testid="your-team-row">
+                  <div className="min-w-0">
+                    <Link href={`${base}/teams/${t.id}`} className="font-semibold text-charcoal hover:underline">
+                      {t.name}
+                    </Link>
+                    <div className="text-xs text-stone-500">
+                      {t.seasonName}
+                      {t.division ? ` · ${t.division}` : ""} · {t.role.replace(/_/g, " ")}
+                    </div>
+                  </div>
+                  <div className="flex gap-3 text-xs font-semibold">
+                    <Link href={`${base}/teams/${t.id}`} className="text-indigo-700 hover:underline">
+                      Roster
+                    </Link>
+                    <Link href={`${base}/teams/${t.id}/emergency`} className="text-indigo-700 hover:underline">
+                      Emergency sheet
+                    </Link>
+                    <Link href={`${base}/teams/${t.id}/schedule`} className="text-indigo-700 hover:underline">
+                      Schedule
+                    </Link>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+      ) : null}
 
       <Card>
         <CardHeader
@@ -115,7 +159,7 @@ export default async function ProgramHubPage({ params }: { params: Promise<{ slu
             }
           />
         ) : (
-          <Table className="min-w-[860px]">
+          <Table className="min-w-[860px]" data-testid="seasons-table">
             <THead>
               <tr>
                 <TH className="pl-2">Season</TH>
@@ -124,7 +168,7 @@ export default async function ProgramHubPage({ params }: { params: Promise<{ slu
                 <TH>Registration window</TH>
                 <TH>Registered</TH>
                 <TH>Waiver</TH>
-                <TH className="pr-2 text-right">Open</TH>
+                {showOpenColumn ? <TH className="pr-2 text-right">Open</TH> : null}
               </tr>
             </THead>
             <TBody>
@@ -158,24 +202,38 @@ export default async function ProgramHubPage({ params }: { params: Promise<{ slu
                   </TD>
                   <TD className="text-charcoal">
                     {s.liveRegistrations}
-                    {s.unpaidCount > 0 ? <span className="ml-1 text-xs text-amber-800">({s.unpaidCount} unpaid)</span> : null}
+                    {canViewSeasonRoster && s.unpaidCount > 0 ? <span className="ml-1 text-xs text-amber-800">({s.unpaidCount} unpaid)</span> : null}
                   </TD>
                   <TD className="text-xs text-stone-600">
                     {s.waiverTitle ? `${s.waiverTitle} (${s.waiverVersion})` : <span className="text-stone-400">None</span>}
                   </TD>
-                  <TD className="pr-2 text-right text-xs font-semibold">
-                    <div className="flex flex-col items-end gap-1">
-                      <Link href={`${base}/seasons/${s.id}/registrations`} className="text-indigo-700 hover:underline">
-                        Registrations
-                      </Link>
-                      <Link href={`${base}/seasons/${s.id}/emergency`} className="text-indigo-700 hover:underline">
-                        Emergency sheet
-                      </Link>
-                      <Link href={`${base}/seasons/${s.id}`} className="text-stone-600 hover:underline">
-                        {canManage ? "Edit season" : "View season"}
-                      </Link>
-                    </div>
-                  </TD>
+                  {showOpenColumn ? (
+                    <TD className="pr-2 text-right text-xs font-semibold">
+                      <div className="flex flex-col items-end gap-1">
+                        {canViewSeasonRoster ? (
+                          <>
+                            <Link href={`${base}/seasons/${s.id}/registrations`} className="text-indigo-700 hover:underline">
+                              Registrations
+                            </Link>
+                            <Link href={`${base}/seasons/${s.id}/teams`} className="text-indigo-700 hover:underline">
+                              Teams
+                            </Link>
+                            <Link href={`${base}/seasons/${s.id}/emergency`} className="text-indigo-700 hover:underline">
+                              Emergency sheet
+                            </Link>
+                            <Link href={`${base}/seasons/${s.id}/insurance`} className="text-indigo-700 hover:underline">
+                              Insurance export
+                            </Link>
+                          </>
+                        ) : null}
+                        {canViewSeasonConfig ? (
+                          <Link href={`${base}/seasons/${s.id}`} className="text-stone-600 hover:underline">
+                            {canManage ? "Edit season" : "View season"}
+                          </Link>
+                        ) : null}
+                      </div>
+                    </TD>
+                  ) : null}
                 </TR>
               ))}
             </TBody>

@@ -6,7 +6,7 @@ import { and, eq, isNull } from "drizzle-orm";
 import { ZodError } from "zod";
 import { auth } from "@/lib/auth";
 import { db } from "@/db";
-import { users, programRoles, programRoleEnum } from "@/db/schema";
+import { users, programRoles, programRoleEnum, teamStaff, teams, teamStaffRoleEnum } from "@/db/schema";
 
 export type OrgRole = "super_admin" | "board_member" | "member";
 export type ProgramRole = (typeof programRoleEnum.enumValues)[number];
@@ -24,6 +24,17 @@ export interface SessionContext {
   image: string | null;
   orgRole: OrgRole;
   programRoles: ProgramRoleGrant[];
+  /** Live team staff assignments on active teams (team-scoped coach access). */
+  teamStaff: TeamStaffGrant[];
+}
+
+export type TeamStaffRole = (typeof teamStaffRoleEnum.enumValues)[number];
+
+export interface TeamStaffGrant {
+  teamId: string;
+  programId: string;
+  seasonId: string;
+  role: TeamStaffRole;
 }
 
 export class DalError extends Error {
@@ -75,6 +86,12 @@ export const getSessionContext = cache(async (): Promise<SessionContext | null> 
     .from(programRoles)
     .where(eq(programRoles.userId, user.id));
 
+  const teamGrants = await db
+    .select({ teamId: teams.id, programId: teams.programId, seasonId: teams.seasonId, role: teamStaff.role })
+    .from(teamStaff)
+    .innerJoin(teams, eq(teams.id, teamStaff.teamId))
+    .where(and(eq(teamStaff.userId, user.id), isNull(teamStaff.removedAt), eq(teams.isActive, true)));
+
   return {
     userId: user.id,
     email: user.email,
@@ -82,6 +99,7 @@ export const getSessionContext = cache(async (): Promise<SessionContext | null> 
     image: avatarUrlFor(user),
     orgRole: user.orgRole,
     programRoles: grants,
+    teamStaff: teamGrants,
   };
 });
 

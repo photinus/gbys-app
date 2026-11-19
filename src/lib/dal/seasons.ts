@@ -1,8 +1,8 @@
 import "server-only";
-import { and, asc, desc, eq, isNull, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import type { ZodType } from "zod";
 import { db } from "@/db";
-import { programs, registrations, seasons, users, waiverVersions } from "@/db/schema";
+import { programs, registrations, seasons, teamStaff, teams, users, waiverVersions } from "@/db/schema";
 import type { CustomFormField } from "@/db/schema/programs";
 import { writeAudit } from "@/lib/audit";
 import { laDateTimeInputToUtc } from "@/lib/format";
@@ -17,7 +17,14 @@ import {
   type WaiverVersionInput,
 } from "@/lib/validation/seasons";
 import { DalError, isBoard, type SessionContext } from "./context";
-import { assertProgramReachable, canManageProgram, canViewRoster, staffProgramIds } from "./permissions";
+import {
+  assertProgramReachable,
+  canManageProgram,
+  canViewProgramHub,
+  canViewRoster,
+  canViewSeasonRoster,
+  staffProgramIds,
+} from "./permissions";
 
 const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -62,9 +69,24 @@ export interface HubSeasonRow {
   waiverVersion: string | null;
 }
 
+export interface HubTeamRow {
+  id: string;
+  name: string;
+  division: string | null;
+  seasonName: string;
+  /** The viewer's staff role on the team. */
+  role: "head_coach" | "assistant_coach" | "team_manager";
+}
+
 export interface ProgramHub {
   program: { id: string; slug: string; name: string; sport: string; description: string | null; isActive: boolean };
   canManage: boolean;
+  /** Whole-season roster + season emergency sheet: program admin / board only. */
+  canViewSeasonRoster: boolean;
+  /** May open the season detail (config, waiver) pages: board or any program staff role. */
+  canViewSeasonConfig: boolean;
+  /** Teams in this program where the viewer is live staff (active teams only). */
+  myTeams: HubTeamRow[];
   seasons: HubSeasonRow[];
 }
 
@@ -115,9 +137,11 @@ export interface SeasonFormPreview {
 // Program hub
 // ---------------------------------------------------------------------------
 
-/** Programs where ctx may view the roster. Board sees all programs (inactive ones sort last); staff only active ones. */
+/** Programs whose hub ctx may open (program staff roles or team staff). Board sees all programs (inactive ones sort last); staff only active ones. */
 export async function listMyStaffPrograms(ctx: SessionContext): Promise<StaffProgramRow[]> {
-  const ids = staffProgramIds(ctx);
+  const staffIds = staffProgramIds(ctx);
+  // Team-only staff (no program role) also reach their program's hub.
+  const ids = staffIds === "all" ? staffIds : [...new Set([...staffIds, ...ctx.teamStaff.map((t) => t.programId)])];
   if (ids !== "all" && ids.length === 0) return [];
 
   const scope = ids === "all" ? sql`true` : sql`${programs.id} in (${sql.join(ids.map((i) => sql`${i}::uuid`), sql`, `)})`;
@@ -182,7 +206,20 @@ async function loadProgramBySlug(ctx: SessionContext, slug: string) {
 
 export async function getProgramHub(ctx: SessionContext, slug: string): Promise<ProgramHub> {
   const program = await loadProgramBySlug(ctx, slug);
-  if (!canViewRoster(ctx, program.id)) throw forbidden();
+  if (!canViewProgramHub(ctx, program.id)) throw forbidden();
+  const seasonRoster = canViewSeasonRoster(ctx, program.id);
+
+  const mine = ctx.teamStaff.filter((t) => t.programId === program.id);
+  const myTeams: HubTeamRow[] = mine.length
+    ? (
+        await db
+          .select({ id: teams.id, name: teams.name, division: teams.division, seasonName: seasons.name, createdAt: teams.createdAt })
+          .from(teams)
+          .innerJoin(seasons, eq(seasons.id, teams.seasonId))
+          .where(and(inArray(teams.id, mine.map((t) => t.teamId)), eq(teams.isActive, true)))
+          .orderBy(desc(seasons.createdAt), asc(teams.name))
+      ).map(({ createdAt: _c, ...t }) => ({ ...t, role: mine.find((m) => m.teamId === t.id)!.role }))
+    : [];
 
   const rows = await db
     .select({
@@ -209,8 +246,13 @@ export async function getProgramHub(ctx: SessionContext, slug: string): Promise<
   return {
     program,
     canManage: canManageProgram(ctx, program.id),
+    canViewSeasonRoster: seasonRoster,
+    canViewSeasonConfig: canViewRoster(ctx, program.id),
+    myTeams,
     seasons: rows.map(({ waiverVersionId, ...r }) => ({
       ...r,
+      // Payment status is roster data: only season-roster viewers see unpaid counts.
+      unpaidCount: seasonRoster ? r.unpaidCount : 0,
       status: computeSeasonStatus({ ...r, waiverVersionId }, now),
     })),
   };

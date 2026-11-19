@@ -35,6 +35,7 @@ export async function AppShell({
     isShiftCoordinator: user.isShiftCoordinator,
     isProgramStaff: user.isProgramStaff,
     isSeatedDirector: user.isSeatedDirector,
+    hasTeams: user.hasTeams,
     volunteerShifts: isFeatureEnabled("volunteerShifts"),
   });
 

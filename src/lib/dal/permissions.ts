@@ -60,7 +60,13 @@ export function canViewRoster(ctx: SessionContext, programId: string): boolean {
 export function staffProgramIds(ctx: SessionContext): "all" | string[] {
   if (isBoard(ctx)) return "all";
   const staff: readonly string[] = PROGRAM_STAFF_ROLES;
-  return [...new Set(ctx.programRoles.filter((g) => staff.includes(g.role)).map((g) => g.programId))];
+  return [
+    ...new Set([
+      ...ctx.programRoles.filter((g) => staff.includes(g.role)).map((g) => g.programId),
+      // Team-only staff (assigned to a team without a program-level role) still reach the hub.
+      ...ctx.teamStaff.map((t) => t.programId),
+    ]),
+  ];
 }
 
 /** Whether to show the "My programs" nav entry. */
@@ -92,4 +98,45 @@ export async function assertProgramReachable(
     .where(and(eq(programs.id, programId), isNull(programs.deletedAt)))
     .limit(1);
   if (!p?.isActive) throw new DalError("NOT_FOUND", "Program not found.");
+}
+
+// ---- Phase 2: teams (coach access is TEAM-scoped) -------------------------------
+
+/** Program hub (seasons list, teams list, schedules): board or any program staff role. */
+export function canViewProgramHub(ctx: SessionContext, programId: string): boolean {
+  return canViewRoster(ctx, programId) || ctx.teamStaff.some((t) => t.programId === programId);
+}
+
+/**
+ * WHOLE-SEASON roster and emergency sheet: board or program admin only.
+ * (Coaches use their team's roster / emergency sheet instead.)
+ */
+export function canViewSeasonRoster(ctx: SessionContext, programId: string): boolean {
+  return canManageProgram(ctx, programId);
+}
+
+/** Team roster / team emergency sheet / team schedule management. */
+export function canViewTeam(ctx: SessionContext, team: { id: string; programId: string }): boolean {
+  return canManageProgram(ctx, team.programId) || ctx.teamStaff.some((t) => t.teamId === team.id);
+}
+
+/** Head coaches and team managers may request facility time / edit their team schedule. */
+export function canScheduleTeam(ctx: SessionContext, team: { id: string; programId: string }): boolean {
+  if (canManageProgram(ctx, team.programId)) return true;
+  return ctx.teamStaff.some((t) => t.teamId === team.id && (t.role === "head_coach" || t.role === "team_manager"));
+}
+
+/** Approve / decline facility booking requests for a program; board approves anything. */
+export function canApproveBookings(ctx: SessionContext, programId: string | null): boolean {
+  return programId ? canManageProgram(ctx, programId) : isBoard(ctx);
+}
+
+/** Manage the facility tree (create / rename / deactivate resources). Board only. */
+export function canManageFacilities(ctx: SessionContext): boolean {
+  return isBoard(ctx);
+}
+
+/** Whether to show the "My teams" nav entry. */
+export function hasTeams(ctx: SessionContext): boolean {
+  return ctx.teamStaff.length > 0;
 }
