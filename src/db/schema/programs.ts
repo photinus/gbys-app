@@ -39,8 +39,14 @@ export const programs = pgTable("programs", {
   description: text("description"),
   isIndependentPartner: boolean("is_independent_partner").notNull().default(false),
   stripeAccountId: text("stripe_account_id"), // Null = routes to primary GBYS Stripe account
+  // = charges_enabled && details_submitted on the connected (Standard) account; synced by account.updated.
   stripeOnboardingComplete: boolean("stripe_onboarding_complete").notNull().default(false),
+  stripeChargesEnabled: boolean("stripe_charges_enabled").notNull().default(false),
+  stripeDetailsSubmitted: boolean("stripe_details_submitted").notNull().default(false),
+  stripeAccountSyncedAt: timestamp("stripe_account_synced_at", { withTimezone: true }),
+  // GBYS platform fee on PARTNER programs only (board-set): flat cents + basis points of the fee.
   platformFeeCents: integer("platform_fee_cents").notNull().default(0),
+  platformFeeBps: integer("platform_fee_bps").notNull().default(0),
   requiredCredentialIds: jsonb("required_credential_ids")
     .$type<string[]>()
     .notNull()

@@ -105,7 +105,18 @@ export type AuditAction =
   | "team_event.created"
   | "team_event.updated"
   | "team_event.cancelled"
-  | "roster.exported";
+  | "roster.exported"
+  | "payment.checkout_started"
+  | "payment.succeeded"
+  | "payment.failed"
+  | "payment.refund_requested"
+  | "payment.refunded"
+  | "payment.dispute_opened"
+  | "payment.dispute_closed"
+  | "stripe.onboarding_started"
+  | "stripe.account_updated"
+  | "program.platform_fee_updated"
+  | "user.email_bounced";
 
 export type AuditTarget =
   | "athlete"
