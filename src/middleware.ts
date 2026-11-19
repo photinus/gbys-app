@@ -36,6 +36,7 @@ export const config = {
     "/programs/:path*",
     "/teams/:path*",
     "/schedule/:path*",
+    "/finance/:path*",
     "/embed/:path*",
   ],
 };

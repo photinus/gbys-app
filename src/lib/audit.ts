@@ -116,7 +116,34 @@ export type AuditAction =
   | "stripe.onboarding_started"
   | "stripe.account_updated"
   | "program.platform_fee_updated"
-  | "user.email_bounced";
+  | "user.email_bounced"
+  | "finance.access_granted"
+  | "finance.access_revoked"
+  | "finance.settings_updated"
+  | "finance.period_closed"
+  | "finance.period_reopened"
+  | "finance.account_created"
+  | "finance.account_updated"
+  | "finance.fund_created"
+  | "finance.fund_updated"
+  | "finance.entry_posted"
+  | "finance.entry_voided"
+  | "finance.entry_replaced"
+  | "finance.auto_posted"
+  | "finance.bank_connected"
+  | "finance.bank_disconnected"
+  | "finance.bank_synced"
+  | "finance.bank_account_updated"
+  | "finance.bank_txn_posted"
+  | "finance.bank_txn_matched"
+  | "finance.bank_txn_excluded"
+  | "finance.bank_txn_restored"
+  | "finance.rule_created"
+  | "finance.rule_updated"
+  | "finance.reconciliation_started"
+  | "finance.reconciliation_completed"
+  | "finance.reconciliation_discarded"
+  | "finance.report_exported";
 
 export type AuditTarget =
   | "athlete"
@@ -150,7 +177,18 @@ export type AuditTarget =
   | "team"
   | "facility"
   | "booking"
-  | "team_event";
+  | "team_event"
+  | "fin_role"
+  | "fin_settings"
+  | "fin_account"
+  | "fin_fund"
+  | "fin_entry"
+  | "fin_connection"
+  | "fin_bank_account"
+  | "fin_bank_txn"
+  | "fin_rule"
+  | "fin_reconciliation"
+  | "fin_report";
 
 export async function writeAudit(
   e: {

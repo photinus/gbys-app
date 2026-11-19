@@ -1,5 +1,11 @@
 import {
   CreditCard,
+  PiggyBank,
+  Banknote,
+  BookOpenText,
+  ChartColumn,
+  ListTree,
+  SlidersHorizontal,
   CalendarRange,
   MapPinned,
   Shirt,
@@ -62,6 +68,12 @@ export const NAV_ICONS: Record<NavIconKey, LucideIcon> = {
   teams: Shirt,
   facilities: MapPinned,
   payments: CreditCard,
+  finance: PiggyBank,
+  banking: Banknote,
+  journal: BookOpenText,
+  reports: ChartColumn,
+  ledgerAccounts: ListTree,
+  financeSettings: SlidersHorizontal,
 };
 
 /** One icon per group, shown in the collapsed rail. */
@@ -75,4 +87,5 @@ export const GROUP_ICONS: Record<GroupIconKey, LucideIcon> = {
   operations: Building2,
   money: Wallet,
   governance: Landmark,
+  finance: PiggyBank,
 };

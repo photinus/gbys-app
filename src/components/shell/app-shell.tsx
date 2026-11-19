@@ -37,6 +37,7 @@ export async function AppShell({
     isProgramStaff: user.isProgramStaff,
     isSeatedDirector: user.isSeatedDirector,
     hasTeams: user.hasTeams,
+    finance: user.finance,
     volunteerShifts: isFeatureEnabled("volunteerShifts"),
   });
   // Collapsed nav sections (read here so the first paint matches; no flash). The section holding

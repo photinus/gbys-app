@@ -1,9 +1,8 @@
 import type { ReactNode } from "react";
 import { notFound } from "next/navigation";
 import { AppShell } from "@/components/shell/app-shell";
-import { hasTeams, isProgramStaff, isShiftCoordinator } from "@/lib/dal/permissions";
-import { getMySeat } from "@/lib/dal/board-shared";
 import { DalError, requireOrgRole } from "@/lib/dal/context";
+import { buildShellUser } from "@/lib/dal/shell-user";
 
 export default async function AdminLayout({ children }: { children: ReactNode }) {
   let ctx;
@@ -14,9 +13,5 @@ export default async function AdminLayout({ children }: { children: ReactNode })
     if (err instanceof DalError && err.code === "FORBIDDEN") notFound();
     throw err;
   }
-  return (
-    <AppShell user={{ name: ctx.name, email: ctx.email, image: ctx.image, orgRole: ctx.orgRole, isShiftCoordinator: isShiftCoordinator(ctx), isProgramStaff: isProgramStaff(ctx), isSeatedDirector: !!(await getMySeat(ctx)), hasTeams: hasTeams(ctx) }}>
-      {children}
-    </AppShell>
-  );
+  return <AppShell user={await buildShellUser(ctx)}>{children}</AppShell>;
 }

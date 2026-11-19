@@ -24,6 +24,8 @@ export interface ShellUser {
   isProgramStaff?: boolean;
   isSeatedDirector?: boolean;
   hasTeams?: boolean;
+  /** Finance nav level (see NavOptions.finance). */
+  finance?: "admin" | "editor" | "viewer" | "program";
 }
 
 export function UserMenu({ user }: { user: ShellUser }) {
