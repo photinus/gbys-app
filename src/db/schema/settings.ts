@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, timestamp, integer, check, customType } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, integer, check, customType, jsonb } from "drizzle-orm/pg-core";
 import { users } from "./auth";
 
 const bytea = customType<{ data: Buffer; driverData: Buffer }>({
@@ -27,6 +27,13 @@ export const orgSettings = pgTable(
     // Null = fall back to env DEFAULT_IN_KIND_HOURLY_RATE_CENTS (then 3349).
     inKindHourlyRateCents: integer("in_kind_hourly_rate_cents"),
     inKindRateSource: text("in_kind_rate_source"), // e.g. "Independent Sector 2025, Oregon"
+    // Ordered list of Board of Directors position titles offered in the seat form
+    // (roster sorts by this order). Seats store the title as text, so editing this
+    // list never rewrites existing seats.
+    boardPositions: jsonb("board_positions")
+      .$type<string[]>()
+      .notNull()
+      .default(["President", "Vice President", "Secretary", "Treasurer", "Director"]),
     logo: bytea("logo"),
     logoContentType: text("logo_content_type"),
     logoUpdatedAt: timestamp("logo_updated_at", { withTimezone: true }),

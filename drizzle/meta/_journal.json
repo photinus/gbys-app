@@ -64,6 +64,13 @@
       "when": 1795034809590,
       "tag": "0008_photos_and_board",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1795039496381,
+      "tag": "0009_board_positions",
+      "breakpoints": true
     }
   ]
 }

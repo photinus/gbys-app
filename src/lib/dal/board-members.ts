@@ -1,11 +1,15 @@
 import "server-only";
 import { and, asc, eq, gt, isNull, ne, or, sql } from "drizzle-orm";
 import { db, type DbOrTx } from "@/db";
-import { boardMeetingAttendance, boardMembers, boardVotes, users } from "@/db/schema";
+import { boardMeetingAttendance, boardMembers, boardVotes, orgSettings, users } from "@/db/schema";
 import { writeAudit } from "@/lib/audit";
 import { laDateInputToUtc, utcToLaDateInput } from "@/lib/format";
 import {
+  DEFAULT_BOARD_POSITIONS,
   boardIdSchema,
+  comparePositions,
+  positionListSchema,
+  samePosition,
   endSeatSchema,
   listMembersSchema,
   memberInputSchema,
@@ -18,7 +22,7 @@ import { requireBoardModule } from "./board-shared";
 import { DalError, type OrgRole, type SessionContext } from "./context";
 
 export interface SeatWarning {
-  kind: "no_account" | "not_board_role" | "account_deactivated";
+  kind: "no_account" | "not_board_role" | "account_deactivated" | "duplicate_position";
   message: string;
   /** Where the board can fix it (admin user page). */
   href?: string;
@@ -72,6 +76,52 @@ function seatWarnings(
   return out;
 }
 
+async function getBoardPositionsRaw(tx: DbOrTx): Promise<string[]> {
+  const [row] = await tx.select({ p: orgSettings.boardPositions }).from(orgSettings).where(eq(orgSettings.id, 1)).limit(1);
+  return Array.isArray(row?.p) ? row.p : [...DEFAULT_BOARD_POSITIONS];
+}
+
+/** Configured seat titles in display order. Board-only. Falls back to the defaults if unset. */
+export async function getBoardPositions(ctx: SessionContext): Promise<string[]> {
+  requireBoardModule(ctx);
+  return getBoardPositionsRaw(db);
+}
+
+/** Replace the position list. Existing seats keep their stored titles. No-op = no audit. */
+export async function updateBoardPositions(ctx: SessionContext, positions: string[]): Promise<{ positions: string[]; changed: boolean }> {
+  requireBoardModule(ctx);
+  const next = positionListSchema.parse(positions);
+  return db.transaction(async (tx) => {
+    await tx.insert(orgSettings).values({ id: 1 }).onConflictDoNothing();
+    const [old] = await tx.select({ p: orgSettings.boardPositions }).from(orgSettings).where(eq(orgSettings.id, 1)).for("update").limit(1);
+    const from: string[] = Array.isArray(old?.p) ? old.p : [...DEFAULT_BOARD_POSITIONS];
+    if (from.length === next.length && from.every((p, i) => p === next[i])) return { positions: next, changed: false };
+    await tx.update(orgSettings).set({ boardPositions: next, updatedByUserId: ctx.userId }).where(eq(orgSettings.id, 1));
+    await writeAudit(
+      {
+        actorUserId: ctx.userId,
+        action: "settings.updated",
+        targetType: "org_settings",
+        targetId: "1",
+        metadata: { field: "boardPositions", from, to: next },
+      },
+      tx
+    );
+    return { positions: next, changed: true };
+  });
+}
+
+/** Warn (never block) when another current seat already holds this title. The last configured title (Director) is expected to repeat. */
+async function duplicatePositionWarning(tx: DbOrTx, position: string, excludeId: string | null, now: Date): Promise<SeatWarning[]> {
+  const list = await getBoardPositionsRaw(tx);
+  if (list.length && samePosition(list[list.length - 1], position)) return [];
+  const today = utcToLaDateInput(now);
+  const rows = await tx.select().from(boardMembers).where(sql`lower(${boardMembers.position}) = ${position.trim().toLowerCase()}`);
+  const other = rows.find((r) => r.id !== excludeId && seatTermStatus(r, today, now).status === "current");
+  if (!other) return [];
+  return [{ kind: "duplicate_position", message: `${other.displayName} also holds the position "${other.position}". That's allowed, but check this is intended.` }];
+}
+
 /** Board members (seats). Current = not ended and the term hasn't run out (upcoming seats included). */
 export async function listBoardMembers(
   ctx: SessionContext,
@@ -81,6 +131,7 @@ export async function listBoardMembers(
   requireBoardModule(ctx);
   const { include } = listMembersSchema.parse(opts);
   const today = utcToLaDateInput(now);
+  const positionOrder = await getBoardPositionsRaw(db);
 
   const rows = await db
     .select({
@@ -125,7 +176,7 @@ export async function listBoardMembers(
   });
   return views
     .filter((v) => include === "all" || v.status !== "ended")
-    .sort((a, b) => order[a.status] - order[b.status] || a.position.localeCompare(b.position) || a.displayName.localeCompare(b.displayName));
+    .sort((a, b) => order[a.status] - order[b.status] || comparePositions(a.position, b.position, positionOrder) || a.displayName.localeCompare(b.displayName));
 }
 
 async function resolveUserByEmail(email: string | null, tx: DbOrTx): Promise<string | null> {
@@ -205,7 +256,8 @@ export async function addBoardMember(
       const [u] = await tx.select({ email: users.email, name: users.name, orgRole: users.orgRole, deletedAt: users.deletedAt }).from(users).where(eq(users.id, userId));
       account = { email: u.email, name: u.name, orgRole: u.orgRole as OrgRole, isActive: !u.deletedAt };
     }
-    return { id: seat.id, warnings: seatWarnings({ isVotingDirector: v.isVotingDirector, userId }, account) };
+    const dup = await duplicatePositionWarning(tx, v.position, seat.id, now);
+    return { id: seat.id, warnings: [...seatWarnings({ isVotingDirector: v.isVotingDirector, userId }, account), ...dup] };
   });
 }
 
@@ -267,7 +319,8 @@ export async function updateBoardMember(
       const [u] = await tx.select({ email: users.email, name: users.name, orgRole: users.orgRole, deletedAt: users.deletedAt }).from(users).where(eq(users.id, userId));
       account = { email: u.email, name: u.name, orgRole: u.orgRole as OrgRole, isActive: !u.deletedAt };
     }
-    return { warnings: ended ? [] : seatWarnings({ isVotingDirector: v.isVotingDirector, userId }, account) };
+    const dup = ended ? [] : await duplicatePositionWarning(tx, v.position, seatId, now);
+    return { warnings: ended ? [] : [...seatWarnings({ isVotingDirector: v.isVotingDirector, userId }, account), ...dup] };
   });
 }
 

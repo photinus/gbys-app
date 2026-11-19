@@ -1,0 +1,1 @@
+ALTER TABLE "org_settings" ADD COLUMN "board_positions" jsonb DEFAULT '["President","Vice President","Secretary","Treasurer","Director"]'::jsonb NOT NULL;
