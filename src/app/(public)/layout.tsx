@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { connection } from "next/server";
 import { Logo } from "@/components/shell/logo";
-import { buttonStyles } from "@/components/ui/button";
+import { SignInLink } from "@/components/shell/sign-in-link";
 import { getBranding } from "@/lib/dal/settings";
 
 export default async function PublicLayout({ children }: { children: React.ReactNode }) {
@@ -14,9 +14,7 @@ export default async function PublicLayout({ children }: { children: React.React
           <Logo logoUrl={logoUrl} name={orgName} />
           <span className="hidden text-sm font-bold tracking-tight sm:inline">{orgName}</span>
         </div>
-        <Link href="/sign-in" className={buttonStyles({ variant: "secondary" })}>
-          Sign in
-        </Link>
+        <SignInLink />
       </header>
       <div className="flex-1">{children}</div>
       <footer className="mx-auto w-full max-w-6xl px-4 py-8 text-xs text-stone-400 sm:px-8">

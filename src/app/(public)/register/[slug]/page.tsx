@@ -66,9 +66,6 @@ export default async function RegisterPage({ params }: { params: Params }) {
                     {dates ? <li>{dates}</li> : null}
                     {elig ? <li>{elig}</li> : null}
                     <li className="font-medium text-stone-600">{closesLabel(s.closesAt)}</li>
-                    <li>
-                      Waiver: {s.waiver.title} (version {s.waiver.version})
-                    </li>
                   </ul>
                 </Card>
               );
