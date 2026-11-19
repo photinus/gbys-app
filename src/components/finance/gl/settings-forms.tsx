@@ -70,6 +70,26 @@ export function SettingsForm({ settings: s }: { settings: FinanceSettingsView })
           />
         </Field>
       </div>
+      <div className="space-y-4 border-t border-line-soft pt-4">
+        <div>
+          <h3 className="text-sm font-semibold text-charcoal">Donation receipts</h3>
+          <p className="text-xs text-stone-500">Printed on every thank-you receipt and yearly statement. The organization name, EIN and logo come from Admin settings.</p>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Receipt signed by" hint="e.g. Jane Smith">
+            <Input name="receiptSignerName" maxLength={120} defaultValue={s.receiptSignerName ?? ""} data-testid="receipt-signer-name" />
+          </Field>
+          <Field label="Signer's title" hint="e.g. Treasurer">
+            <Input name="receiptSignerTitle" maxLength={120} defaultValue={s.receiptSignerTitle ?? ""} data-testid="receipt-signer-title" />
+          </Field>
+        </div>
+        <Field label="Thank-you message" hint="A short paragraph shown on receipts. Leave blank for a standard thank-you.">
+          <Textarea name="receiptMessage" rows={3} maxLength={1500} defaultValue={s.receiptMessage ?? ""} data-testid="receipt-message" />
+        </Field>
+        <Field label="How customers can pay invoices" hint="Shown on emailed invoices, e.g. “Make checks payable to … or pay online at …”.">
+          <Textarea name="invoicePaymentInstructions" rows={3} maxLength={1500} defaultValue={s.invoicePaymentInstructions ?? ""} data-testid="invoice-payment-instructions" />
+        </Field>
+      </div>
       <FormError state={state} />
       <div className="flex justify-end">
         <Button type="submit" disabled={pending} data-testid="save-settings">

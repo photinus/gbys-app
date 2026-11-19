@@ -28,7 +28,7 @@ export default async function FinanceSettingsPage() {
       </div>
 
       <Card>
-        <CardHeader title="General" description="Fiscal year, Stripe payouts and approvals" />
+        <CardHeader title="General" description="Fiscal year, Stripe payouts, approvals, donation receipts and invoice payment instructions" />
         <SettingsForm settings={settings} />
       </Card>
 

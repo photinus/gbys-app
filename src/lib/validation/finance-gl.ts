@@ -185,6 +185,11 @@ export const settingsSchema = z.object({
     .transform((v) => v.replace(/^\$/, "").replace(/,/g, ""))
     .refine((v) => v === "" || /^\d{1,8}(\.\d{1,2})?$/.test(v), "Enter a dollar amount like 500 or 500.00, or leave it blank.")
     .transform((v) => (v === "" ? null : Math.round(Number(v) * 100))),
+  // Finance 2: donor receipts and invoices (all optional).
+  receiptSignerName: optionalText(120, "Signer name"),
+  receiptSignerTitle: optionalText(120, "Signer title"),
+  receiptMessage: optionalText(1500, "Receipt message"),
+  invoicePaymentInstructions: optionalText(1500, "Payment instructions"),
 });
 export type SettingsInput = z.input<typeof settingsSchema>;
 

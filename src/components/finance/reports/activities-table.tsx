@@ -90,7 +90,7 @@ export function ActivitiesTable({ a, netAssets }: { a: Activities; netAssets: Ac
         <TR>
           <TD className="py-3">
             Net assets released from restrictions
-            <span className="block text-xs text-stone-500">Spending from donor-restricted funds this period.</span>
+            <span className="block text-xs text-stone-500">Spending from donor-restricted funds this period, plus any funds released by hand.</span>
           </TD>
           <ColsCells c={a.released} />
         </TR>

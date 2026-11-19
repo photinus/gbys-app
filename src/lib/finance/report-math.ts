@@ -8,7 +8,11 @@
  *  - Revenue lines in a restricted fund are "with donor restrictions" revenue.
  *  - Expense lines in a restricted fund are shown as expenses WITHOUT donor restrictions plus an
  *    equal "Net assets released from restrictions" reclassification (+ unrestricted, - restricted).
- *    Nothing is posted for releases; they are computed here.
+ *    Nothing is posted for those releases; they are computed here.
+ *  - Finance 2: an explicit "fund_release" entry (Dr 3100 restricted fund / Cr 3000 General Fund,
+ *    posted by the donations module) is passed in separately as `releaseRows` (the net-asset lines of
+ *    fund_release entries only). It adds to "Net assets released from restrictions" and moves the
+ *    fund balance; the lines themselves also stay in `rows` so the balance sheet still balances.
  *  - Net assets without restrictions = 3000-type balance + cumulative (revenue - expense) of
  *    unrestricted funds. With restrictions = 3100 balance + cumulative restricted fund balances.
  */
@@ -51,6 +55,21 @@ function restrictedFundIds(funds: FundInfo[]): Set<string> {
 
 function acctMap(accounts: AcctInfo[]): Map<string, AcctInfo> {
   return new Map(accounts.map((a) => [a.id, a]));
+}
+
+/**
+ * Total moved out of restricted funds by explicit fund_release entries: debits - credits of the
+ * net-asset lines that sit in a restricted fund. (The offsetting credit sits in the General Fund.)
+ */
+export function explicitReleasedCents(accounts: AcctInfo[], funds: FundInfo[], releaseRows: LineTotals[]): number {
+  const am = acctMap(accounts);
+  const restricted = restrictedFundIds(funds);
+  let n = 0;
+  for (const r of releaseRows) {
+    const a = am.get(r.accountId);
+    if (a?.type === "net_assets" && restricted.has(r.fundId)) n += r.debitCents - r.creditCents;
+  }
+  return n;
 }
 
 // ---------------------------------------------------------------------------
@@ -194,7 +213,12 @@ function groupRows(rows: ActivitiesRow[], accounts: Map<string, AcctInfo>): Acti
   return out;
 }
 
-export function buildActivities(accounts: AcctInfo[], funds: FundInfo[], rows: LineTotals[]): Activities {
+export function buildActivities(
+  accounts: AcctInfo[],
+  funds: FundInfo[],
+  rows: LineTotals[],
+  releaseRows: LineTotals[] = [],
+): Activities {
   const am = acctMap(accounts);
   const restricted = restrictedFundIds(funds);
   const rev = new Map<string, { w: number; r: number }>();
@@ -227,6 +251,7 @@ export function buildActivities(accounts: AcctInfo[], funds: FundInfo[], rows: L
   const expenseGroups = groupRows(expRows, am);
   const totalRevenue = revRows.reduce<Cols>((s, r) => addCols(s, r), zeroCols());
   const totalExpenses = expRows.reduce<Cols>((s, r) => addCols(s, r), zeroCols());
+  released += explicitReleasedCents(accounts, funds, releaseRows);
   const releasedCols: Cols = { without: released, with: -released, total: 0 };
   const totalRevenueAndReleases = addCols(totalRevenue, releasedCols);
   const change: Cols = {
@@ -267,7 +292,12 @@ export interface NetAssets {
  * Net assets from CUMULATIVE totals (everything up to the as-of date).
  * 3100 (systemKey net_assets_restricted) is restricted; every other net-asset account is unrestricted.
  */
-export function computeNetAssets(accounts: AcctInfo[], funds: FundInfo[], rows: LineTotals[]): NetAssets {
+export function computeNetAssets(
+  accounts: AcctInfo[],
+  funds: FundInfo[],
+  rows: LineTotals[],
+  releaseRows: LineTotals[] = [],
+): NetAssets {
   const am = acctMap(accounts);
   const restricted = restrictedFundIds(funds);
   let openingWithout = 0;
@@ -305,7 +335,7 @@ export function computeNetAssets(accounts: AcctInfo[], funds: FundInfo[], rows: 
     openingWith,
     surplusWithout,
     surplusWith,
-    releasedToDate: expR,
+    releasedToDate: expR + explicitReleasedCents(accounts, funds, releaseRows),
   };
 }
 
@@ -482,6 +512,11 @@ export interface FundBalanceRow {
   revenueCents: number;
   /** Expenses charged to the fund; for restricted funds these are the amounts "released". */
   expensesCents: number;
+  /**
+   * Explicit fund releases in the period (debits - credits of fund_release lines): positive = released
+   * out of this restricted fund, negative = received by the General Fund.
+   */
+  releasesCents: number;
   closingCents: number;
   negative: boolean;
 }
@@ -503,13 +538,15 @@ export function buildFundBalances(
   funds: FundInfo[],
   before: LineTotals[],
   during: LineTotals[],
+  /** The fund_release net-asset lines inside the period (also present in `during`). */
+  duringReleases: LineTotals[] = [],
 ): FundBalances {
   const am = acctMap(accounts);
-  const acc = new Map<string, { open: number; adj: number; rev: number; exp: number }>();
+  const acc = new Map<string, { open: number; adj: number; rev: number; exp: number; rel: number }>();
   const slot = (id: string) => {
     let s = acc.get(id);
     if (!s) {
-      s = { open: 0, adj: 0, rev: 0, exp: 0 };
+      s = { open: 0, adj: 0, rev: 0, exp: 0, rel: 0 };
       acc.set(id, s);
     }
     return s;
@@ -528,11 +565,19 @@ export function buildFundBalances(
     else if (a.type === "revenue") slot(row.fundId).rev += row.creditCents - row.debitCents;
     else if (a.type === "expense") slot(row.fundId).exp += row.debitCents - row.creditCents;
   }
+  // Explicit releases are shown in their own column, not as "opening balances & transfers".
+  for (const row of duringReleases) {
+    const a = am.get(row.accountId);
+    if (a?.type !== "net_assets") continue;
+    const s = slot(row.fundId);
+    s.adj -= row.creditCents - row.debitCents;
+    s.rel += row.debitCents - row.creditCents;
+  }
   const rows: FundBalanceRow[] = [];
   for (const f of funds) {
     const s = acc.get(f.id);
     if (!s) continue;
-    const closing = s.open + s.adj + s.rev - s.exp;
+    const closing = s.open + s.adj + s.rev - s.exp - s.rel;
     rows.push({
       fundId: f.id,
       name: f.name,
@@ -542,6 +587,7 @@ export function buildFundBalances(
       adjustmentsCents: s.adj,
       revenueCents: s.rev,
       expensesCents: s.exp,
+      releasesCents: s.rel,
       closingCents: closing,
       negative: closing < 0,
     });

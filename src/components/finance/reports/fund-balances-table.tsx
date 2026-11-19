@@ -4,7 +4,7 @@ import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import type { FundBalanceRow, FundBalances } from "@/lib/finance/report-math";
 import { Amt, NUM } from "./report-ui";
 
-function FundRow({ f, programName, showAdj }: { f: FundBalanceRow; programName?: string; showAdj: boolean }) {
+function FundRow({ f, programName, showAdj, showRel }: { f: FundBalanceRow; programName?: string; showAdj: boolean; showRel: boolean }) {
   return (
     <TR className={f.negative ? "bg-rose-50" : undefined}>
       <TD className="py-2.5">
@@ -31,6 +31,11 @@ function FundRow({ f, programName, showAdj }: { f: FundBalanceRow; programName?:
       <TD className={NUM}>
         <Amt cents={-f.expensesCents} />
       </TD>
+      {showRel ? (
+        <TD className={NUM}>
+          <Amt cents={-f.releasesCents} />
+        </TD>
+      ) : null}
       <TD className={NUM}>
         <Amt cents={f.closingCents} bold dash={false} />
       </TD>
@@ -42,7 +47,8 @@ export function FundBalancesTable({ b, programNames }: { b: FundBalances; progra
   const showAdj = b.rows.some((r) => r.adjustmentsCents !== 0);
   const restricted = b.rows.filter((r) => r.restricted);
   const unrestricted = b.rows.filter((r) => !r.restricted);
-  const cols = showAdj ? 6 : 5;
+  const showRel = b.rows.some((r) => r.releasesCents !== 0);
+  const cols = 5 + (showAdj ? 1 : 0) + (showRel ? 1 : 0);
   return (
     <Table>
       <THead>
@@ -52,6 +58,7 @@ export function FundBalancesTable({ b, programNames }: { b: FundBalances; progra
           {showAdj ? <TH className="text-right">Opening balances &amp; transfers</TH> : null}
           <TH className="text-right">Revenue</TH>
           <TH className="text-right">Spent (released)</TH>
+          {showRel ? <TH className="text-right">Released to / from General Fund</TH> : null}
           <TH className="text-right">Closing balance</TH>
         </tr>
       </THead>
@@ -64,7 +71,7 @@ export function FundBalancesTable({ b, programNames }: { b: FundBalances; progra
               </td>
             </tr>
             {restricted.map((f) => (
-              <FundRow key={f.fundId} f={f} programName={programNames[f.fundId]} showAdj={showAdj} />
+              <FundRow key={f.fundId} f={f} programName={programNames[f.fundId]} showAdj={showAdj} showRel={showRel} />
             ))}
             <TR className="border-t border-line">
               <TD className="font-bold">Total with donor restrictions</TD>
@@ -83,7 +90,7 @@ export function FundBalancesTable({ b, programNames }: { b: FundBalances; progra
               </td>
             </tr>
             {unrestricted.map((f) => (
-              <FundRow key={f.fundId} f={f} programName={programNames[f.fundId]} showAdj={showAdj} />
+              <FundRow key={f.fundId} f={f} programName={programNames[f.fundId]} showAdj={showAdj} showRel={showRel} />
             ))}
             <TR className="border-t border-line">
               <TD className="font-bold">Total without donor restrictions</TD>

@@ -30,6 +30,10 @@ export async function updateSettingsAction(
       stripePayoutAccountId: str(fd, "stripePayoutAccountId"),
       autoPostStartDate: str(fd, "autoPostStartDate"),
       dualApprovalThresholdDollars: str(fd, "dualApprovalThresholdDollars"),
+      receiptSignerName: str(fd, "receiptSignerName"),
+      receiptSignerTitle: str(fd, "receiptSignerTitle"),
+      receiptMessage: str(fd, "receiptMessage"),
+      invoicePaymentInstructions: str(fd, "invoicePaymentInstructions"),
     })
   );
   if (res.ok) refresh();
