@@ -34,6 +34,7 @@ export function RailGroup({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLUListElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const skipFocusOpen = useRef(false);
   const pendingFocus = useRef<"first" | "last" | null>(null);
   const menuId = useId();
   const Icon = GROUP_ICONS[group.icon];
@@ -100,7 +101,9 @@ export function RailGroup({
   function closeToTrigger() {
     clear();
     setOpen(false);
+    skipFocusOpen.current = true; // returning focus must not re-open the menu
     triggerRef.current?.focus();
+    skipFocusOpen.current = false;
   }
 
   function onTriggerKey(e: React.KeyboardEvent) {
@@ -167,6 +170,7 @@ export function RailGroup({
           setOpen((o) => !o);
         }}
         onFocus={(e) => {
+          if (skipFocusOpen.current) return;
           let visible = true;
           try {
             visible = e.currentTarget.matches(":focus-visible");

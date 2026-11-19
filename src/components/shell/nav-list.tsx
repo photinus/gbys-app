@@ -97,8 +97,8 @@ function Section({ group, env }: { group: NavGroup; env: Env }) {
           open ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
         )}
       >
-        <div className="-mx-1 min-h-0 overflow-hidden px-1 py-px">
-          <ul className="flex flex-col gap-0.5">
+        <div className="-mx-1 min-h-0 overflow-hidden px-1">
+          <ul className="flex flex-col gap-0.5 py-px">
             {group.items.map((item) => (
               <li key={item.href}>
                 <ItemLink item={item} env={env} />

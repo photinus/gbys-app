@@ -48,6 +48,10 @@ export function SignInForm({
   googleEnabled: boolean;
   appleEnabled: boolean;
 }) {
+  // On a failed / cancelled Google or Apple sign-in (or an expired magic link) Better Auth
+  // sends the browser to errorCallbackURL with ?error=… appended. Keep `next` on it so the
+  // visitor still returns to where they started (e.g. a registration page) afterwards.
+  const errorReturn = next && next !== "/dashboard" ? `/sign-in?next=${encodeURIComponent(next)}` : "/sign-in";
   const [email, setEmail] = useState("");
   const [sentTo, setSentTo] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(errorMessage(initialError));
@@ -60,7 +64,7 @@ export function SignInForm({
       const res = await signIn.social({
         provider: "apple",
         callbackURL: next,
-        errorCallbackURL: "/sign-in",
+        errorCallbackURL: errorReturn,
       });
       if (res?.error) {
         setError("Apple sign-in is unavailable right now. Try email instead.");
@@ -80,7 +84,7 @@ export function SignInForm({
       const res = await signIn.social({
         provider: "google",
         callbackURL: next,
-        errorCallbackURL: "/sign-in",
+        errorCallbackURL: errorReturn,
       });
       if (res?.error) {
         setError("Google sign-in is unavailable right now. Try email instead.");
@@ -103,7 +107,7 @@ export function SignInForm({
       const res = await signIn.magicLink({
         email: trimmed,
         callbackURL: next,
-        errorCallbackURL: "/sign-in",
+        errorCallbackURL: errorReturn,
       });
       if (res?.error) {
         setError(res.error.message || "We couldn't send the sign-in link. Please try again.");
