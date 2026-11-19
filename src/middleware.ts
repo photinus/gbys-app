@@ -12,6 +12,8 @@ export function middleware(request: NextRequest) {
   if (pathname.startsWith("/embed/")) {
     const res = NextResponse.next();
     res.headers.set("Content-Security-Policy", `frame-ancestors ${embedFrameAncestors()}`);
+    res.headers.set("X-Content-Type-Options", "nosniff");
+    res.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
     return res;
   }
 

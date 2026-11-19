@@ -192,3 +192,56 @@ export async function sendBoardVoteRequestEmail({
     `),
   });
 }
+
+/**
+ * Notifies staff of a public contact-form submission. Reply-to is the submitter (so "Reply"
+ * works); there is deliberately no auto-reply to the submitter. Every submitted value is escaped.
+ */
+export async function sendContactSubmissionEmail({
+  to,
+  replyTo,
+  formTitle,
+  programName,
+  name,
+  email,
+  phone,
+  message,
+  answers,
+  inboxUrl,
+}: {
+  to: string[];
+  replyTo: string;
+  formTitle: string;
+  programName?: string | null;
+  name: string;
+  email: string;
+  phone?: string | null;
+  message: string;
+  answers: { label: string; value: string }[];
+  inboxUrl: string;
+}) {
+  if (to.length === 0) return;
+  // Header-safe subject: collapse control characters/newlines, cap the length.
+  const clean = (s: string, max: number) => s.replace(/[\u0000-\u001f\u007f]+/g, " ").trim().slice(0, max);
+  const subject = `New message: ${clean(formTitle, 100)} — ${clean(name, 80)}`;
+  const row = (label: string, valueHtml: string) =>
+    `<p style="margin: 0 0 10px;"><span style="color: #64748b; font-size: 12px;">${escapeHtml(label)}</span><br>${valueHtml}</p>`;
+  const multiline = (s: string) => escapeHtml(s).replace(/\r?\n/g, "<br>");
+  const html = layout(`
+        <h2>New contact form message</h2>
+        <p style="color: #64748b; font-size: 13px;">${escapeHtml(formTitle)}${programName ? ` · ${escapeHtml(programName)}` : ""}</p>
+        ${row("From", `<strong>${escapeHtml(name)}</strong> &lt;${escapeHtml(email)}&gt;`)}
+        ${phone ? row("Phone", escapeHtml(phone)) : ""}
+        <p style="margin: 16px 0 4px; color: #64748b; font-size: 12px;">Message</p>
+        <p style="background: #f1f5f9; padding: 12px; border-radius: 6px; margin-top: 0;">${multiline(message)}</p>
+        ${answers.map((a) => row(a.label, multiline(a.value))).join("")}
+        ${button(inboxUrl, "Open inbox")}
+        <p style="color: #64748b; font-size: 13px;">Reply to this email to answer ${escapeHtml(name)} directly (${escapeHtml(email)}). Nothing was sent to the submitter automatically.</p>
+    `);
+  const nuntly = getClient();
+  if (!nuntly) {
+    console.log(`[EMAIL not sent: NUNTLY_API_KEY missing] to=${to.join(",")} reply_to=${replyTo} subject="${subject}"\n${html}`);
+    return;
+  }
+  await nuntly.emails.send({ from: fromAddress(), to, subject, html, reply_to: replyTo });
+}
