@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { AlertTriangle, ArrowRight, Check, Circle, Landmark, TrendingDown, TrendingUp, Wallet } from "lucide-react";
+import { AlertTriangle, ArrowRight, Check, CircleDollarSign, Circle, ClipboardCheck, FileText, HeartHandshake, Landmark, Receipt, TrendingDown, TrendingUp, Wallet } from "lucide-react";
 import { guarded } from "@/components/finance/gl/guard";
 import { fmtDay, money } from "@/components/finance/gl/format";
 import { Badge, Card, CardHeader, EmptyState, KpiCard, TBody, TD, TH, THead, TR, Table, buttonStyles } from "@/components/ui";
 import { requireSession } from "@/lib/dal/context";
 import { canEditBooks, getFinanceAccess, isFinanceAdmin } from "@/lib/dal/finance-access";
 import { getFinanceOverview, type OrgOverview, type ProgramOverview } from "@/lib/dal/finance-overview";
+import type { PayablesSummary } from "@/lib/dal/finance-bills";
 import { formatDateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -91,6 +92,41 @@ function OrgView({ o, canEdit, isAdmin }: { o: OrgOverview; canEdit: boolean; is
           <ArrowRight className="h-4 w-4 shrink-0 text-amber-950" />
         </Link>
       ) : null}
+
+      <PayablesTiles p={o.payables} canApprove={canEdit} />
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4" data-testid="ar-gift-tiles">
+        <Link href="/finance/receivables?status=unpaid" className="block" data-testid="tile-ar-outstanding">
+          <KpiCard
+            icon={Receipt}
+            tone="periwinkle"
+            label="Owed to us (A/R)"
+            value={money(o.receivables.outstandingCents)}
+            hint={`${o.receivables.openCount} open invoice${o.receivables.openCount === 1 ? "" : "s"}`}
+          />
+        </Link>
+        <Link href="/finance/receivables?overdue=1" className="block" data-testid="tile-ar-overdue">
+          <KpiCard
+            icon={AlertTriangle}
+            tone={o.receivables.overdueCount > 0 ? "coral" : "sage"}
+            label="Invoices overdue"
+            value={money(o.receivables.overdueCents)}
+            hint={`${o.receivables.overdueCount} overdue invoice${o.receivables.overdueCount === 1 ? "" : "s"}`}
+          />
+        </Link>
+        <Link href="/finance/donations?receipt=needed" className="block" data-testid="tile-gifts-receipts">
+          <KpiCard
+            icon={HeartHandshake}
+            tone={o.gifts.needCount > 0 ? "amber" : "sage"}
+            label="Gifts needing receipts"
+            value={o.gifts.needCount}
+            hint={
+              o.gifts.requiredCount > 0
+                ? `${o.gifts.requiredCount} required ($250 or more)`
+                : "None required right now"
+            }
+          />
+        </Link>
+      </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <KpiCard icon={Landmark} tone="periwinkle" label="Cash in the bank" value={money(cash)} hint="According to our books" />
@@ -214,9 +250,50 @@ function OrgView({ o, canEdit, isAdmin }: { o: OrgOverview; canEdit: boolean; is
   );
 }
 
+function PayablesTiles({ p, canApprove }: { p: PayablesSummary; canApprove: boolean }) {
+  return (
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4" data-testid="payables-tiles">
+      {canApprove ? (
+        <Link href="/finance/payables/approvals" className="block" data-testid="tile-my-approvals">
+          <KpiCard
+            icon={ClipboardCheck}
+            tone={p.myApprovals > 0 ? "amber" : "sage"}
+            label="Bills awaiting my approval"
+            value={p.myApprovals}
+            hint={p.pendingCount > p.myApprovals ? `${p.pendingCount} waiting in all` : "Bills and reimbursements"}
+          />
+        </Link>
+      ) : (
+        <Link href="/finance/payables?group=attention" className="block" data-testid="tile-pending">
+          <KpiCard icon={ClipboardCheck} tone="amber" label="Bills awaiting approval" value={p.pendingCount} hint={money(p.pendingCents)} />
+        </Link>
+      )}
+      <Link href="/finance/payables?group=unpaid" className="block" data-testid="tile-due-soon">
+        <KpiCard
+          icon={FileText}
+          tone="periwinkle"
+          label="Bills due in 14 days"
+          value={money(p.dueSoonCents)}
+          hint={`${p.dueSoonCount} bill${p.dueSoonCount === 1 ? "" : "s"} to pay`}
+        />
+      </Link>
+      <Link href="/finance/payables?overdue=1" className="block" data-testid="tile-overdue">
+        <KpiCard
+          icon={CircleDollarSign}
+          tone={p.overdueCount > 0 ? "coral" : "sage"}
+          label="Bills overdue"
+          value={money(p.overdueCents)}
+          hint={`${p.overdueCount} overdue bill${p.overdueCount === 1 ? "" : "s"}`}
+        />
+      </Link>
+    </div>
+  );
+}
+
 function ProgramView({ o }: { o: ProgramOverview }) {
   return (
     <>
+      <PayablesTiles p={o.payables} canApprove={false} />
       <Card>
         <CardHeader
           title="Programs"

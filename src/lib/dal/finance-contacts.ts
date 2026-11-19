@@ -136,6 +136,8 @@ async function assertDefaultAccount(tx: DbOrTx, accountId: string | null | undef
  */
 export async function createContact(ctx: SessionContext, input: ContactInput, tx?: DbOrTx): Promise<{ id: string }> {
   const a = await requireContactRead(ctx);
+  // Read-only roles (viewers, board) can't create contacts; only org editors or program editors can.
+  if (!canEditBooks(a) && !isProgramEditor(a)) throw new DalError("FORBIDDEN", "You do not have permission to do that.");
   const data = contactInputSchema.parse(input);
   if (!canEditBooks(a)) {
     if (data.isCustomer || data.isDonor || data.is1099) throw new DalError("FORBIDDEN", "You do not have permission to do that.");

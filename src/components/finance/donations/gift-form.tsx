@@ -88,7 +88,7 @@ export function GiftForm({
 
       {bankTxn ? (
         <p className="rounded-xl bg-periwinkle/20 px-3.5 py-2.5 text-xs text-indigo-950" data-testid="bank-banner">
-          Recording from a bank deposit: <strong>{bankTxn.description}</strong> ({centsToInput(bankTxn.amountCents)}). The amount and deposit account come from the bank transaction.
+          Recording from a bank deposit: <strong>{bankTxn.description}</strong> (${centsToInput(bankTxn.amountCents)}). The amount and deposit account come from the bank transaction.
         </p>
       ) : null}
       {editing && initial.receiptCount > 0 ? (

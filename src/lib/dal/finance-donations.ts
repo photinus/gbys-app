@@ -267,6 +267,23 @@ export async function listGifts(ctx: SessionContext, filters: GiftFilters = {}):
   };
 }
 
+export interface GiftReceiptSummary {
+  /** Live, receiptable gifts with no (current) acknowledgment. */
+  needCount: number;
+  /** Of those, gifts of $250 or more (written acknowledgment required by the IRS). */
+  requiredCount: number;
+}
+
+export async function getGiftReceiptSummary(ctx: SessionContext): Promise<GiftReceiptSummary> {
+  await requireFinance(ctx, "view_all");
+  const r = await db.execute<{ n: string; req: string }>(sql`
+    select count(*)::text as n,
+           (count(*) filter (where g.amount_cents >= ${RECEIPT_REQUIRED_CENTS}))::text as req
+    ${GIFT_FROM} where ${NEEDS_RECEIPT_SQL}
+  `);
+  return { needCount: Number(r.rows[0].n), requiredCount: Number(r.rows[0].req) };
+}
+
 export interface GiftReceiptHistoryRow {
   id: string;
   kind: "gift" | "annual";

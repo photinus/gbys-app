@@ -561,6 +561,47 @@ export async function countMyApprovals(ctx: SessionContext): Promise<number> {
   return (await listApprovalQueue(ctx)).mine.length;
 }
 
+export interface PayablesSummary {
+  /** Bills waiting on this user (excludes ones they can't decide on). */
+  myApprovals: number;
+  /** All bills waiting for approval within this user's scope. */
+  pendingCount: number;
+  pendingCents: number;
+  /** Approved, unpaid, due within the next 14 days (not yet overdue). */
+  dueSoonCount: number;
+  dueSoonCents: number;
+  overdueCount: number;
+  overdueCents: number;
+}
+
+/** Overview numbers for payables, scoped to what the user can read (program users: their programs). */
+export async function getPayablesSummary(ctx: SessionContext): Promise<PayablesSummary> {
+  const a = await getFinanceAccess(ctx);
+  if (a.level === null && a.programs.length === 0) throw new DalError("FORBIDDEN", NO_PERMISSION);
+  const today = laToday();
+  const soon = addDays(today, 14);
+  const [r] = await db
+    .select({
+      pn: sql<number>`(count(*) filter (where ${finBills.status} = 'pending_approval'))::int`,
+      pc: sql<number>`coalesce(sum(${finBills.totalCents}) filter (where ${finBills.status} = 'pending_approval'), 0)::int`,
+      sn: sql<number>`(count(*) filter (where ${finBills.status} in ('approved','partially_paid') and coalesce(${finBills.dueDate}, ${finBills.billDate}) >= ${today}::date and coalesce(${finBills.dueDate}, ${finBills.billDate}) <= ${soon}::date))::int`,
+      sc: sql<number>`coalesce(sum(${finBills.totalCents} - ${finBills.paidCents}) filter (where ${finBills.status} in ('approved','partially_paid') and coalesce(${finBills.dueDate}, ${finBills.billDate}) >= ${today}::date and coalesce(${finBills.dueDate}, ${finBills.billDate}) <= ${soon}::date), 0)::int`,
+      on: sql<number>`(count(*) filter (where ${finBills.status} in ('approved','partially_paid') and coalesce(${finBills.dueDate}, ${finBills.billDate}) < ${today}::date))::int`,
+      oc: sql<number>`coalesce(sum(${finBills.totalCents} - ${finBills.paidCents}) filter (where ${finBills.status} in ('approved','partially_paid') and coalesce(${finBills.dueDate}, ${finBills.billDate}) < ${today}::date), 0)::int`,
+    })
+    .from(finBills)
+    .where(readScope(a));
+  return {
+    myApprovals: await countMyApprovals(ctx),
+    pendingCount: r.pn,
+    pendingCents: r.pc,
+    dueSoonCount: r.sn,
+    dueSoonCents: r.sc,
+    overdueCount: r.on,
+    overdueCents: r.oc,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Validation helpers
 // ---------------------------------------------------------------------------
