@@ -17,6 +17,7 @@ import { writeAudit } from "@/lib/audit";
 import { buildAnswersSchema } from "@/lib/custom-form";
 import { utcToLaDateInput } from "@/lib/format";
 import { registrationSubmitSchema } from "@/lib/validation/registration";
+import { paymentRouteFor } from "@/lib/stripe";
 import { hashWaiverBody } from "@/lib/waiver";
 import { DalError, type SessionContext } from "./context";
 import { canViewSeasonRoster } from "./permissions";
@@ -74,6 +75,8 @@ export interface SubmitResult {
   signedWaiverId: string;
   feeCents: number;
   paymentStatus: "unpaid" | "paid";
+  /** True when a card payment can be started right now (route ready, fee > 0). */
+  canPayOnline: boolean;
   athleteName: string;
   seasonName: string;
   programName: string;
@@ -91,6 +94,10 @@ export interface MyRegistration {
   cancelledAt: Date | null;
   feeCents: number;
   paymentStatus: "unpaid" | "pending" | "paid" | "waived_scholarship" | "refunded";
+  /** Unpaid, live, fee > 0, guardian can register, and the program's card route is ready. */
+  canPayOnline: boolean;
+  /** Current Stripe Checkout session (lets the return page tell which registration it is about). */
+  checkoutSessionId: string | null;
   createdAt: Date;
   waiver: { title: string; version: string; signatureName: string; signedAt: Date } | null;
   canWithdraw: boolean;
@@ -352,7 +359,15 @@ export async function submitRegistration(
       if (!season) throw new DalError("NOT_FOUND", "That season was not found.");
 
       const [program] = await tx
-        .select({ id: programs.id, name: programs.name, isActive: programs.isActive, deletedAt: programs.deletedAt })
+        .select({
+          id: programs.id,
+          name: programs.name,
+          isActive: programs.isActive,
+          deletedAt: programs.deletedAt,
+          isIndependentPartner: programs.isIndependentPartner,
+          stripeAccountId: programs.stripeAccountId,
+          stripeOnboardingComplete: programs.stripeOnboardingComplete,
+        })
         .from(programs)
         .where(eq(programs.id, season.programId))
         .limit(1);
@@ -500,6 +515,7 @@ export async function submitRegistration(
         signedWaiverId: sig.id,
         feeCents: season.baseFeeCents,
         paymentStatus: free ? ("paid" as const) : ("unpaid" as const),
+        canPayOnline: !free && paymentRouteFor(program!).ready,
         athleteName: `${athlete.firstName} ${athlete.lastName}`,
         seasonName: season.name,
         programName: program!.name,
@@ -529,6 +545,10 @@ export async function listMyRegistrations(ctx: SessionContext): Promise<MyRegist
       feeCents: registrations.feeCents,
       paymentStatus: registrations.paymentStatus,
       paymentMethod: registrations.paymentMethod,
+      checkoutSessionId: registrations.stripeCheckoutSessionId,
+      isIndependentPartner: programs.isIndependentPartner,
+      stripeAccountId: programs.stripeAccountId,
+      stripeOnboardingComplete: programs.stripeOnboardingComplete,
       createdAt: registrations.createdAt,
       canRegister: householdGuardians.canRegister,
       wTitle: waiverVersions.title,
@@ -561,6 +581,9 @@ export async function listMyRegistrations(ctx: SessionContext): Promise<MyRegist
       cancelledAt: r.deletedAt,
       feeCents: r.feeCents,
       paymentStatus: r.paymentStatus,
+      canPayOnline:
+        !cancelled && r.canRegister && r.paymentStatus === "unpaid" && r.feeCents > 0 && paymentRouteFor(r).ready,
+      checkoutSessionId: cancelled ? null : r.checkoutSessionId,
       createdAt: r.createdAt,
       waiver: r.wName && r.wSignedAt && r.wVersion
         ? { title: r.wTitle ?? "Waiver", version: r.wVersion, signatureName: r.wName, signedAt: r.wSignedAt }

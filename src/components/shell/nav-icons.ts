@@ -1,4 +1,5 @@
 import {
+  CreditCard,
   CalendarRange,
   MapPinned,
   Shirt,
@@ -54,4 +55,5 @@ export const NAV_ICONS: Record<NavIconKey, LucideIcon> = {
   schedule: CalendarRange,
   teams: Shirt,
   facilities: MapPinned,
+  payments: CreditCard,
 };

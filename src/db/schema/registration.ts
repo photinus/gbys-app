@@ -55,6 +55,12 @@ export const registrations = pgTable(
     paidAt: timestamp("paid_at", { withTimezone: true }),
     paymentRecordedByUserId: text("payment_recorded_by_user_id").references(() => users.id),
     stripePaymentIntentId: text("stripe_payment_intent_id"),
+    stripeCheckoutSessionId: text("stripe_checkout_session_id"),
+    // Account the payment was charged on: null = GBYS platform account, else the league's acct_….
+    stripeAccountId: text("stripe_account_id"),
+    platformFeeChargedCents: integer("platform_fee_charged_cents"), // application fee snapshot
+    refundedCents: integer("refunded_cents").notNull().default(0),
+    disputedAt: timestamp("disputed_at", { withTimezone: true }),
     offlineReferenceNote: text("offline_reference_note"), // e.g. "Check #1042"
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true })
@@ -104,6 +110,48 @@ export const signedWaivers = pgTable(
   (t) => [
     index("signed_waivers_registration_idx").on(t.registrationId),
     index("signed_waivers_athlete_idx").on(t.athleteId),
+  ]
+);
+
+export const paymentEventKindEnum = pgEnum("payment_event_kind", [
+  "charge",
+  "refund",
+  "dispute_opened",
+  "dispute_closed",
+  "offline_payment",
+  "offline_void",
+]);
+
+/**
+ * Append-only money ledger (DB trigger forbids UPDATE/DELETE). One row per
+ * charge, refund, dispute and offline payment/void. Stripe rows are keyed by
+ * the Stripe object id (unique) so webhook redelivery can never double-count.
+ * amountCents is always positive; the kind gives the direction.
+ */
+export const paymentEvents = pgTable(
+  "payment_events",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    registrationId: uuid("registration_id")
+      .notNull()
+      .references(() => registrations.id),
+    programId: uuid("program_id"),
+    kind: paymentEventKindEnum("kind").notNull(),
+    amountCents: integer("amount_cents").notNull(),
+    currency: text("currency").notNull().default("usd"),
+    applicationFeeCents: integer("application_fee_cents"),
+    stripeObjectId: text("stripe_object_id").unique(), // pi_/re_/dp_ ids; null for offline rows
+    stripeAccountId: text("stripe_account_id"), // null = platform account
+    method: paymentMethodEnum("method"),
+    note: text("note"),
+    recordedByUserId: text("recorded_by_user_id").references(() => users.id), // null = Stripe webhook
+    occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("payment_events_registration_idx").on(t.registrationId),
+    index("payment_events_program_idx").on(t.programId, t.occurredAt),
+    check("payment_events_amount_chk", sql`${t.amountCents} >= 0`),
   ]
 );
 

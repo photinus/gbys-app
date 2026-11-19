@@ -7,6 +7,7 @@ import { withdrawRegistrationAction } from "@/app/(portal)/registrations/actions
 import { Badge, Button, buttonStyles, Card, EmptyState, Modal, useToast, type BadgeTone } from "@/components/ui";
 import type { MyRegistration } from "@/lib/dal/registrations";
 import { formatCents, formatDate, formatDob } from "@/lib/format";
+import { PayNowButton } from "./pay-now-button";
 import { SignedWaiverSheet } from "./signed-waiver-sheet";
 
 const PAYMENT: Record<MyRegistration["paymentStatus"], { label: string; tone: BadgeTone }> = {
@@ -99,10 +100,13 @@ export function MyRegistrations({ registrations }: { registrations: MyRegistrati
                   </p>
                 ) : r.paymentStatus === "unpaid" ? (
                   <p className="mt-3 text-xs text-stone-500">
-                    Pay your program by cash or check; a coordinator will record it.
+                    {r.canPayOnline
+                      ? "Pay online by card, or pay your program by cash or check and a coordinator will record it."
+                      : "Pay your program by cash or check; a coordinator will record it."}
                   </p>
                 ) : null}
-                <div className="mt-4 flex flex-wrap items-center gap-2">
+                <div className="mt-4 flex flex-wrap items-start gap-2">
+                  {r.canPayOnline ? <PayNowButton registrationId={r.id} amountCents={r.feeCents} /> : null}
                   {r.waiver ? (
                     <Button size="sm" variant="secondary" onClick={() => setWaiverId(r.id)}>
                       <FileSignature className="h-4 w-4" aria-hidden /> View signed waiver

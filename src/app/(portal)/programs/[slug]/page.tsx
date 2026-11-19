@@ -60,6 +60,11 @@ export default async function ProgramHubPage({ params }: { params: Promise<{ slu
             </Link>
           ) : null}
           {canManage ? (
+            <Link href={`${base}/payments`} data-testid="program-payments-link" className={buttonStyles({ size: "sm", variant: "secondary" })}>
+              Payments
+            </Link>
+          ) : null}
+          {canManage ? (
             <Link href={`${base}/seasons/new`} className={buttonStyles({ size: "sm" })}>
               New season
             </Link>

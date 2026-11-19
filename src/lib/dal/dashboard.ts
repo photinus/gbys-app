@@ -13,6 +13,7 @@ import {
   volunteerRoles,
 } from "@/db/schema";
 import { utcToLaDateInput } from "@/lib/format";
+import { paymentRouteFor } from "@/lib/stripe";
 import type { SessionContext } from "./context";
 import { listMyAthletes } from "./households";
 
@@ -41,6 +42,8 @@ export interface DashboardDue {
   programName: string;
   seasonName: string;
   feeCents: number;
+  /** A card payment can be started (program route ready and the guardian can register). */
+  canPayOnline: boolean;
 }
 
 export interface AttentionItem {
@@ -103,6 +106,10 @@ export async function getMemberDashboard(ctx: SessionContext, now: Date = new Da
         endsOn: seasons.endsOn,
         paymentStatus: registrations.paymentStatus,
         feeCents: registrations.feeCents,
+        canRegister: householdGuardians.canRegister,
+        isIndependentPartner: programs.isIndependentPartner,
+        stripeAccountId: programs.stripeAccountId,
+        stripeOnboardingComplete: programs.stripeOnboardingComplete,
       })
       .from(registrations)
       .innerJoin(
@@ -179,6 +186,7 @@ export async function getMemberDashboard(ctx: SessionContext, now: Date = new Da
       programName: r.programName,
       seasonName: r.seasonName,
       feeCents: r.feeCents,
+      canPayOnline: r.canRegister && paymentRouteFor(r).ready,
     }));
   const totalCents = dueItems.reduce((s, d) => s + d.feeCents, 0);
 
@@ -247,7 +255,7 @@ export async function getMemberDashboard(ctx: SessionContext, now: Date = new Da
       key: "dues",
       kind: "unpaid_dues",
       title: `${dueItems.length === 1 ? "1 registration" : `${dueItems.length} registrations`} unpaid`,
-      detail: "Pay your program by cash or check.",
+      detail: dueItems.some((d) => d.canPayOnline) ? "Pay online or by cash or check." : "Pay your program by cash or check.",
       href: "/registrations",
     });
   }

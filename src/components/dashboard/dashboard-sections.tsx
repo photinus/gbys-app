@@ -4,6 +4,7 @@ import { Badge, type BadgeTone } from "@/components/ui/badge";
 import { Card, CardHeader } from "@/components/ui/card";
 import type { MemberDashboard } from "@/lib/dal/dashboard";
 import { formatCents, formatDob } from "@/lib/format";
+import { PayNowButton } from "@/components/registration/pay-now-button";
 import { MemberAvatar } from "./member-avatar";
 
 const seeAll = "text-sm font-semibold text-indigo-700 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-periwinkle rounded";
@@ -113,7 +114,7 @@ export function DuesSection({ dues }: { dues: MemberDashboard["dues"] }) {
     <Card data-testid="dash-dues">
       <CardHeader
         title="Outstanding dues"
-        description="Pay your program by cash or check; a coordinator will record it."
+        description={dues.items.some((d) => d.canPayOnline) ? "Pay online by card, or by cash or check; a coordinator will record those." : "Pay your program by cash or check; a coordinator will record it."}
         action={<Link href="/registrations" className={seeAll}>View registrations</Link>}
       />
       <p className="text-3xl font-bold tracking-tight text-charcoal" data-testid="dash-dues-total">
@@ -128,7 +129,10 @@ export function DuesSection({ dues }: { dues: MemberDashboard["dues"] }) {
                 {d.programName} · {d.seasonName}
               </span>
             </span>
-            <span className="shrink-0 font-semibold text-charcoal">{formatCents(d.feeCents)}</span>
+            <span className="flex shrink-0 flex-col items-end gap-1.5">
+              <span className="font-semibold text-charcoal">{formatCents(d.feeCents)}</span>
+              {d.canPayOnline ? <PayNowButton registrationId={d.registrationId} /> : null}
+            </span>
           </li>
         ))}
       </ul>
