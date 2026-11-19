@@ -364,7 +364,8 @@ function payoutArrivalDate(payout: Stripe.Payout): IsoDate {
 
 async function sumPayoutFees(payoutId: string): Promise<number> {
   let fees = 0;
-  const list = getStripe().balanceTransactions.list({ payout: payoutId, limit: 100 });
+  // Runs while the webhook transaction is open: fail fast (no retries) and fall back to "fees unknown".
+  const list = getStripe().balanceTransactions.list({ payout: payoutId, limit: 100 }, { timeout: 10_000, maxNetworkRetries: 0 });
   for await (const bt of list) {
     if (bt.type === "payout") continue;
     fees += bt.fee ?? 0;
@@ -459,7 +460,9 @@ async function voidPayoutEntries(tx: DbTx, payoutId: string, reason: string): Pr
 
 /** "paid_pending" = Stripe says paid but posting hasn't succeeded yet (retry from the page). */
 const PAYOUT_PAID_PENDING = "paid_pending";
-const FINAL_PAYOUT = new Set(["paid", PAYOUT_FEES_UNKNOWN, PAYOUT_PAID_PENDING, "failed", "canceled"]);
+/** Paid before the auto-post start date (or while auto-post is off): recorded, never posted. */
+export const PAYOUT_BEFORE_START = "paid_not_tracked";
+const FINAL_PAYOUT = new Set(["paid", PAYOUT_FEES_UNKNOWN, PAYOUT_PAID_PENDING, PAYOUT_BEFORE_START, "failed", "canceled"]);
 
 /** Stripe webhook (platform account only): payout.paid / payout.failed / payout.canceled / payout.updated. */
 export async function handlePayoutEvent(tx: DbTx, payout: Stripe.Payout, eventType: string): Promise<void> {
@@ -490,6 +493,12 @@ export async function handlePayoutEvent(tx: DbTx, payout: Stripe.Payout, eventTy
 
   try {
     await tx.transaction(async (sp) => {
+      const start = incoming === "paid" ? await getAutoPostStart(sp) : null;
+      if (incoming === "paid" && (!start || base.arrivalDate < start) && !(await entryExists(sp, "stripe_payout", payout.id))) {
+        // Its charges were never auto-posted, so posting the payout would drive the Stripe balance negative.
+        await sp.update(finStripePayouts).set({ status: PAYOUT_BEFORE_START, journalEntryId: null }).where(eq(finStripePayouts.id, payout.id));
+        return;
+      }
       if (incoming === "paid") {
         const r = await postPaidPayout(sp, payout, prev?.status ?? null);
         await sp
@@ -499,6 +508,18 @@ export async function handlePayoutEvent(tx: DbTx, payout: Stripe.Payout, eventTy
       } else if (incoming === "failed" || incoming === "canceled") {
         await voidPayoutEntries(sp, payout.id, incoming === "failed" ? "Payout failed" : "Payout canceled");
         await sp.update(finStripePayouts).set({ feesCents: 0, journalEntryId: null }).where(eq(finStripePayouts.id, payout.id));
+      }
+      if (eventType !== "retry" && (incoming === "paid" || incoming === "failed" || incoming === "canceled")) {
+        await writeAudit(
+          {
+            actorUserId: null,
+            action: "finance.auto_posted",
+            targetType: "fin_entry",
+            targetId: payout.id,
+            metadata: { payout: payout.id, event: eventType, status: incoming, amountCents: payout.amount },
+          },
+          sp
+        );
       }
     });
   } catch (err) {

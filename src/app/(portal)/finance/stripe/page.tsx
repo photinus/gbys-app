@@ -5,7 +5,7 @@ import { Badge, Card, CardHeader, EmptyState, Table, TBody, TD, TH, THead, TR } 
 import type { BadgeTone } from "@/components/ui";
 import { StripeActions, RetryPayoutButton } from "@/components/finance/stripe/stripe-actions";
 import { DalError, requireSession } from "@/lib/dal/context";
-import { getAutoPostStatus, PAYOUT_FEES_UNKNOWN } from "@/lib/dal/finance-autopost";
+import { getAutoPostStatus, PAYOUT_BEFORE_START, PAYOUT_FEES_UNKNOWN } from "@/lib/dal/finance-autopost";
 import { formatCents, formatDate, formatDateTime } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Stripe auto-posting" };
@@ -28,6 +28,8 @@ function payoutStatus(status: string): { label: string; tone: BadgeTone } {
       return { label: "Paid, fees missing", tone: "warning" };
     case "paid_pending":
       return { label: "Paid, not posted", tone: "warning" };
+    case PAYOUT_BEFORE_START:
+      return { label: "Paid before auto-post start", tone: "neutral" };
     case "in_transit":
       return { label: "In transit", tone: "info" };
     case "pending":
