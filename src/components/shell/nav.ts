@@ -39,7 +39,12 @@ export type NavIconKey =
   | "journal"
   | "reports"
   | "ledgerAccounts"
-  | "financeSettings";
+  | "financeSettings"
+  | "payables"
+  | "receivables"
+  | "donations"
+  | "budgets"
+  | "reimbursements";
 
 export interface NavItem {
   label: string;
@@ -149,6 +154,7 @@ export function getNavGroups(orgRole: OrgRole, opts: NavOptions = {}): NavGroup[
         { label: "Credentials", href: "/volunteer/credentials", icon: "credentials" },
         { label: "Roles", href: "/volunteer/roles", icon: "roles" },
         { label: "Hours", href: "/volunteer/hours", icon: "hours" },
+        { label: "Reimbursements", href: "/reimbursements", icon: "reimbursements" },
         ...(shiftsOn ? [{ label: "Shifts", href: "/volunteer/shifts", icon: "shifts" as const }] : []),
       ],
     },
@@ -165,12 +171,16 @@ export function getNavGroups(orgRole: OrgRole, opts: NavOptions = {}): NavGroup[
       defaultCollapsed: true,
       items: [
         { label: "Finance overview", href: "/finance", icon: "finance" },
+        ...(orgWide ? [{ label: "Banking", href: "/finance/banking", icon: "banking" as const }] : []),
+        { label: "Bills & payables", href: "/finance/payables", icon: "payables" },
         ...(orgWide
           ? [
-              { label: "Banking", href: "/finance/banking", icon: "banking" as const },
+              { label: "Invoices", href: "/finance/receivables", icon: "receivables" as const },
+              { label: "Donations", href: "/finance/donations", icon: "donations" as const },
               { label: "Journal", href: "/finance/journal", icon: "journal" as const },
             ]
           : []),
+        { label: "Budgets", href: "/finance/budgets", icon: "budgets" },
         { label: "Reports", href: "/finance/reports", icon: "reports" },
         ...(orgWide ? [{ label: "Accounts & funds", href: "/finance/accounts", icon: "ledgerAccounts" as const }] : []),
         ...(opts.finance === "admin"

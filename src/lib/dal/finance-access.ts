@@ -115,3 +115,25 @@ export async function requireFinance(ctx: SessionContext, need: FinanceNeed): Pr
   if (!ok) throw new DalError("FORBIDDEN", "You do not have permission to do that.");
   return a;
 }
+
+// ---- Finance 2 -------------------------------------------------------------
+
+/** Approve / reject bills and reimbursements (never one you created, submitted or are paid by). */
+export function canApproveBills(a: FinanceAccess): boolean {
+  return canEditBooks(a);
+}
+
+/**
+ * Create / submit a bill for a program (programId) or organization-wide (null).
+ * Program editors may only submit bills whose header AND lines are their program.
+ */
+export function canSubmitBillFor(a: FinanceAccess, programId: string | null): boolean {
+  if (canEditBooks(a)) return true;
+  return programId !== null && a.programs.some((p) => p.programId === programId && p.role === "editor");
+}
+
+/** Read bills of a program (program viewers/editors) or all (org-wide). */
+export function canViewBillsFor(a: FinanceAccess, programId: string | null): boolean {
+  if (a.level !== null) return true;
+  return programId !== null && a.programs.some((p) => p.programId === programId);
+}

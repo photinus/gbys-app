@@ -1,6 +1,11 @@
 import {
   CreditCard,
   PiggyBank,
+  FileInput,
+  FileOutput,
+  Gift,
+  Target,
+  ReceiptText,
   Banknote,
   BookOpenText,
   ChartColumn,
@@ -74,6 +79,11 @@ export const NAV_ICONS: Record<NavIconKey, LucideIcon> = {
   reports: ChartColumn,
   ledgerAccounts: ListTree,
   financeSettings: SlidersHorizontal,
+  payables: FileInput,
+  receivables: FileOutput,
+  donations: Gift,
+  budgets: Target,
+  reimbursements: ReceiptText,
 };
 
 /** One icon per group, shown in the collapsed rail. */
