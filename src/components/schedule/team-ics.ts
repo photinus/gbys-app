@@ -10,6 +10,8 @@ export interface TeamIcsEvent {
   location: string | null;
   description: string | null;
   cancelled: boolean;
+  /** Field booking still awaiting approval: published as STATUS:TENTATIVE. */
+  tentative?: boolean;
   updatedAt: Date;
 }
 
@@ -75,7 +77,7 @@ export function buildTeamIcs(
       `SUMMARY:${escapeIcsText(e.summary)}`,
       ...(e.location ? [`LOCATION:${escapeIcsText(e.location)}`] : []),
       ...(e.description ? [`DESCRIPTION:${escapeIcsText(e.description)}`] : []),
-      `STATUS:${e.cancelled ? "CANCELLED" : "CONFIRMED"}`,
+      `STATUS:${e.cancelled ? "CANCELLED" : e.tentative ? "TENTATIVE" : "CONFIRMED"}`,
       "TRANSP:OPAQUE",
       "END:VEVENT"
     );

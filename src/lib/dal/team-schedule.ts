@@ -27,6 +27,7 @@ import {
 import { buildTeamIcs, type TeamIcsEvent } from "@/components/schedule/team-ics";
 import { DalError, type SessionContext } from "./context";
 import { insertBooking, type BookingConflict } from "./booking-engine";
+import { redactConflicts } from "./facilities";
 import { canApproveBookings, canScheduleTeam, canViewTeam } from "./permissions";
 
 const forbidden = () => new DalError("FORBIDDEN", "You do not have permission to do that.");
@@ -424,7 +425,7 @@ export async function createTeamEvent(ctx: SessionContext, teamId: string, raw: 
           autoApprove,
         });
         if (!res.ok) {
-          const text = res.conflicts.map(conflictText).join("; ");
+          const text = redactConflicts(ctx, res.conflicts).map(conflictText).join("; ");
           if (!isSeries) throw new DalError("INVALID", `That time conflicts with an existing booking (${text}). Choose another time or facility.`);
           skipped.push({ date: occ.date, reason: `Conflicts with ${text}` });
           continue;
@@ -577,7 +578,7 @@ export async function updateTeamEvent(
           autoApprove,
         });
         if (!res.ok) {
-          throw new DalError("INVALID", `That time conflicts with an existing booking (${res.conflicts.map(conflictText).join("; ")}). Nothing was changed.`);
+          throw new DalError("INVALID", `That time conflicts with an existing booking (${redactConflicts(ctx, res.conflicts).map(conflictText).join("; ")}). Nothing was changed.`);
         }
         bookingId = res.bookingId;
         bookingStatus = res.status;
@@ -746,6 +747,7 @@ export async function getTeamCalendarFeed(token: string, now: Date = new Date())
       location,
       description: r.notes,
       cancelled,
+      tentative: !cancelled && bookingStatus === "requested",
       updatedAt: r.updatedAt,
     };
   });

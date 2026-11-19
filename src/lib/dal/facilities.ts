@@ -47,6 +47,15 @@ export class BookingConflictError extends DalError {
   }
 }
 
+/** Other programs' booking titles stay private: they show as an anonymous block (same as the calendar). */
+export function redactConflicts(ctx: SessionContext, conflicts: BookingConflict[]): BookingConflict[] {
+  return conflicts.map((c) =>
+    isBoard(ctx) || (c.programId && (ctx.programRoles.some((r) => r.programId === c.programId) || ctx.teamStaff.some((t) => t.programId === c.programId)))
+      ? c
+      : { ...c, title: "Booked" }
+  );
+}
+
 const forbidden = () => new DalError("FORBIDDEN", "You do not have permission to do that.");
 
 // ---- Facility tree -------------------------------------------------------------
@@ -224,7 +233,7 @@ export async function updateFacility(
         .where(and(inArray(resourceBookings.resourceId, ids), eq(resourceBookings.status, "approved"), gt(resourceBookings.endsAt, new Date())));
       for (const b of future) {
         const conflicts = await findBookingConflicts(tx, { resourceId: b.resourceId, startsAt: b.startsAt, endsAt: b.endsAt, excludeBookingId: b.id });
-        if (conflicts.length) throw new BookingConflictError(conflicts, `Moving this facility would double-book "${b.title}" with`);
+        if (conflicts.length) throw new BookingConflictError(redactConflicts(ctx, conflicts), `Moving this facility would double-book "${b.title}" with`);
       }
     }
     await writeAudit(
@@ -332,7 +341,7 @@ export async function createDirectBooking(ctx: SessionContext, raw: DirectBookin
       notes: input.notes,
       autoApprove: true,
     });
-    if (!res.ok) throw new BookingConflictError(res.conflicts);
+    if (!res.ok) throw new BookingConflictError(redactConflicts(ctx, res.conflicts));
     await writeAudit(
       { actorUserId: ctx.userId, action: "booking.created", targetType: "booking", targetId: res.bookingId, metadata: { resourceId: input.resourceId, programId: input.programId, startsAt: input.startsAt, endsAt: input.endsAt, title: input.title } },
       tx
@@ -444,26 +453,30 @@ export async function listBookingRequests(
       let competing: BookingRequestRow["competing"] = [];
       if (r.status === "requested") {
         conflicts = await findBookingConflicts(tx, { resourceId: r.resourceId, startsAt: r.startsAt, endsAt: r.endsAt, excludeBookingId: r.id });
-        const rel = await tx.execute<{ id: string; title: string; resource_name: string }>(sql`
+        const rel = await tx.execute<{ id: string; title: string; resource_name: string; program_id: string | null }>(sql`
           with recursive
             up as (select id, parent_resource_id, 0 d from resources where id = ${r.resourceId}
                    union all select x.id, x.parent_resource_id, up.d + 1 from resources x join up on x.id = up.parent_resource_id where up.d < 32),
             down as (select id, 0 d from resources where id = ${r.resourceId}
                    union all select x.id, down.d + 1 from resources x join down on x.parent_resource_id = down.id where down.d < 32)
-          select b.id, b.title, res.name as resource_name
+          select b.id, b.title, res.name as resource_name, b.program_id
           from resource_bookings b join resources res on res.id = b.resource_id
           where b.status = 'requested' and b.id <> ${r.id}::uuid
             and b.resource_id in (select id from up union select id from down)
             and b.starts_at < ${r.endsAt} and b.ends_at > ${r.startsAt}
           order by b.created_at limit 5
         `);
-        competing = rel.rows.map((x) => ({ id: x.id, title: x.title, resourceName: x.resource_name }));
+        competing = rel.rows.map((x) => ({
+          id: x.id,
+          title: redactConflicts(ctx, [{ id: x.id, resourceId: r.resourceId, resourceName: x.resource_name, title: x.title, startsAt: r.startsAt, endsAt: r.endsAt, programId: x.program_id }])[0].title,
+          resourceName: x.resource_name,
+        }));
       }
       out.push({
         ...r,
         seriesPending: r.seriesId ? (seriesCounts.get(r.seriesId) ?? 0) : 0,
         isPast: r.endsAt <= now,
-        conflicts,
+        conflicts: redactConflicts(ctx, conflicts),
         competing,
       });
     }
@@ -510,7 +523,7 @@ async function approveInTx(tx: DbTx, ctx: SessionContext, id: string, note: stri
   if (!facility.isActive) throw new DalError("INVALID", `${facility.name} is inactive and cannot be booked.`);
   await lockFacilityTree(tx, b.resourceId);
   const conflicts = await findBookingConflicts(tx, { resourceId: b.resourceId, startsAt: b.startsAt, endsAt: b.endsAt, excludeBookingId: b.id });
-  if (conflicts.length) throw new BookingConflictError(conflicts, "Cannot approve, it conflicts with");
+  if (conflicts.length) throw new BookingConflictError(redactConflicts(ctx, conflicts), "Cannot approve, it conflicts with");
   await tx
     .update(resourceBookings)
     .set({ status: "approved", decidedByUserId: ctx.userId, decidedAt: new Date(), decisionNote: note })
