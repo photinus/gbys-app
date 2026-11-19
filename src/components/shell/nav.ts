@@ -30,7 +30,8 @@ export type NavIconKey =
   | "contact"
   | "schedule"
   | "teams"
-  | "facilities";
+  | "facilities"
+  | "payments";
 
 export interface NavItem {
   label: string;
@@ -112,6 +113,7 @@ export function getNavGroups(orgRole: OrgRole, opts: NavOptions = {}): NavGroup[
             { label: "Volunteer roles", href: "/admin/volunteer-roles", icon: "volunteerRoles" },
             { label: "Compliance", href: "/admin/compliance", icon: "compliance" },
             { label: "Hours review", href: "/admin/hours", icon: "hoursReview" },
+            { label: "Payments", href: "/admin/payments", icon: "payments" },
             { label: "Grants", href: "/admin/grants", icon: "grants" },
             { label: "Programs", href: "/admin/programs", icon: "programs" },
             { label: "Settings", href: "/admin/settings", icon: "settings" },

@@ -159,7 +159,7 @@ export function LedgerView({
                     {r.applicationFeeCents ? formatCents(r.applicationFeeCents) : ""}
                   </TD>
                   <TD className="max-w-[260px] text-xs text-stone-500">
-                    {r.method ? <span className="capitalize">{r.method}</span> : null}
+                    {r.method && r.method !== "stripe" ? <span className="capitalize">{r.method}</span> : null}
                     {r.note ? <div className="break-words">{r.note}</div> : null}
                     {r.stripeObjectId ? <div className="break-all font-mono text-[11px] text-stone-400">{r.stripeObjectId}</div> : null}
                     <div className="text-stone-400">{r.recordedByName ?? (r.stripeObjectId ? "Stripe" : "")}</div>
