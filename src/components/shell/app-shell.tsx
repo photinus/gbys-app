@@ -3,7 +3,8 @@ import type { ReactNode } from "react";
 import { getBranding } from "@/lib/dal/settings";
 import { isFeatureEnabled } from "@/lib/features";
 import { MobileNav } from "./mobile-nav";
-import { getNavGroups, INTRO_COOKIE, SIDEBAR_COOKIE } from "./nav";
+import { NavCollapseProvider } from "./nav-collapse";
+import { getNavGroups, INTRO_COOKIE, NAV_COLLAPSED_COOKIE, parseCollapsedCookie, SIDEBAR_COOKIE } from "./nav";
 import { Sidebar } from "./sidebar";
 import { TopBar } from "./top-bar";
 import type { ShellUser } from "./user-menu";
@@ -38,8 +39,12 @@ export async function AppShell({
     hasTeams: user.hasTeams,
     volunteerShifts: isFeatureEnabled("volunteerShifts"),
   });
+  // Collapsed nav sections (read here so the first paint matches; no flash). The section holding
+  // the current page is forced open on the client, which knows the pathname.
+  const initialCollapsed = parseCollapsedCookie(jar.get(NAV_COLLAPSED_COOKIE)?.value, groups);
 
   return (
+    <NavCollapseProvider initial={initialCollapsed}>
     <div className="min-h-screen flex flex-col lg:flex-row">
       <a
         href="#main-content"
@@ -70,5 +75,6 @@ export async function AppShell({
         </div>
       </div>
     </div>
+    </NavCollapseProvider>
   );
 }

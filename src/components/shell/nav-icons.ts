@@ -13,6 +13,11 @@ import {
   ClipboardCheck,
   ClipboardList,
   Clock,
+  Building2,
+  HandHeart,
+  Home,
+  UsersRound,
+  Wallet,
   FileSpreadsheet,
   FolderKanban,
   LayoutDashboard,
@@ -20,6 +25,7 @@ import {
   ListChecks,
   ScrollText,
   Settings,
+  Shield,
   ShieldCheck,
   Trophy,
   UserCog,
@@ -27,7 +33,7 @@ import {
   Users,
   type LucideIcon,
 } from "lucide-react";
-import type { NavIconKey } from "./nav";
+import type { GroupIconKey, NavIconKey } from "./nav";
 
 export const NAV_ICONS: Record<NavIconKey, LucideIcon> = {
   dashboard: LayoutGrid,
@@ -56,4 +62,17 @@ export const NAV_ICONS: Record<NavIconKey, LucideIcon> = {
   teams: Shirt,
   facilities: MapPinned,
   payments: CreditCard,
+};
+
+/** One icon per group, shown in the collapsed rail. */
+export const GROUP_ICONS: Record<GroupIconKey, LucideIcon> = {
+  overview: LayoutGrid,
+  family: Home,
+  volunteer: HandHeart,
+  programs: Trophy,
+  admin: Shield,
+  people: UsersRound,
+  operations: Building2,
+  money: Wallet,
+  governance: Landmark,
 };
