@@ -8,9 +8,12 @@ registration with versioned waiver e-signatures, offline (cash/check/scholarship
 payments and an offline-capable coach emergency sheet (Sprint 3a); admin overview, user management,
 org settings and branding, credential types, an audit log viewer and a grouped,
 collapsible sidebar (Admin & Navigation); volunteer roles with expected hours per
-season or year, sign-up/approval and grant commitment reporting (Volunteer Roles). See `AGENT_HANDOFF.md` for the
+season or year, sign-up/approval and grant commitment reporting (Volunteer Roles); board of directors, photos and public
+contact forms; teams with team-scoped coach access, facility booking with approvals,
+team/parent schedules with calendar feeds, and insurance roster exports (Phase 2). See `AGENT_HANDOFF.md` for the
 product spec and invariants, `ARCHITECTURE.md` for the layout, and `docs/SPRINT1_PLAN.md`
-`docs/SPRINT2_PLAN.md` `docs/SPRINT3A_PLAN.md` `docs/ADMIN_NAV_PLAN.md` and `docs/VOLUNTEER_ROLES_PLAN.md` for the sprint implementation plans. UI reference: `assets/ui-mockup.html`.
+`docs/SPRINT2_PLAN.md` `docs/SPRINT3A_PLAN.md` `docs/ADMIN_NAV_PLAN.md` `docs/VOLUNTEER_ROLES_PLAN.md`, `docs/PHASE1_POLISH_PHOTOS_BOARD_PLAN.md`,
+`docs/CONTACT_FORMS_PLAN.md` and `docs/PHASE2_TEAMS_SCHEDULING_PLAN.md` for the sprint implementation plans. UI reference: `assets/ui-mockup.html`.
 
 ## Local development
 
