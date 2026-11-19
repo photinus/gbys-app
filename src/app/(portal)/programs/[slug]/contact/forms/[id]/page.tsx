@@ -31,7 +31,7 @@ export default async function ProgramEditContactFormPage({ params }: { params: P
         </Link>
         <h1 className="mt-1 text-2xl font-bold tracking-tight text-charcoal">{form.title}</h1>
       </div>
-      <ContactFormEditor key={form.updatedAt.getTime()} basePath={base} form={form} {...contactEmbedConfig()} />
+      <ContactFormEditor basePath={base} form={form} {...contactEmbedConfig()} />
     </div>
   );
 }

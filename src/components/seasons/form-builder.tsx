@@ -86,12 +86,15 @@ export function FormBuilder({
   onChange,
   lockedKeys,
   disabled,
+  maxFields = MAX_FIELDS,
 }: {
   fields: BuilderField[];
   onChange: (fields: BuilderField[]) => void;
   /** Keys that already have registration answers: can't be removed, renamed or retyped. */
   lockedKeys: Set<string>;
   disabled?: boolean;
+  /** Field cap shown and enforced by the Add button (defaults to 25; contact forms use 15). */
+  maxFields?: number;
 }) {
   const locked = lockedKeys.size > 0;
   const update = (uid: string, patch: Partial<BuilderField>) =>
@@ -267,13 +270,13 @@ export function FormBuilder({
           <Button
             variant="secondary"
             size="sm"
-            disabled={fields.length >= MAX_FIELDS}
+            disabled={fields.length >= maxFields}
             onClick={() => onChange([...fields, blankField(fields)])}
           >
             <Plus className="h-4 w-4" /> Add field
           </Button>
           <span className="text-xs text-stone-400">
-            {fields.length} of {MAX_FIELDS}
+            {fields.length} of {maxFields}
           </span>
         </div>
       ) : null}

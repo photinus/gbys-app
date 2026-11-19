@@ -159,7 +159,7 @@ export function ContactFormEditor({ basePath, form, program, programOptions, app
               Phone is required
             </label>
           </div>
-          <FormBuilder fields={fields} onChange={setFields} lockedKeys={new Set()} />
+          <FormBuilder fields={fields} onChange={setFields} lockedKeys={new Set()} maxFields={CONTACT_MAX_FIELDS} />
           {overCap ? (
             <p role="alert" data-testid="cap-warning" className="mt-3 rounded-xl bg-coral/25 px-3.5 py-2.5 text-xs font-medium text-rose-900">
               A contact form can have at most {CONTACT_MAX_FIELDS} extra questions. Remove {fields.length - CONTACT_MAX_FIELDS} to save.

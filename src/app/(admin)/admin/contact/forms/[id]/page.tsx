@@ -28,7 +28,7 @@ export default async function AdminEditContactFormPage({ params }: { params: Pro
         </Link>
         <h1 className="mt-1 text-2xl font-bold tracking-tight text-charcoal">{form.title}</h1>
       </div>
-      <ContactFormEditor key={form.updatedAt.getTime()} basePath="/admin/contact" form={form} {...contactEmbedConfig()} />
+      <ContactFormEditor basePath="/admin/contact" form={form} {...contactEmbedConfig()} />
     </div>
   );
 }
