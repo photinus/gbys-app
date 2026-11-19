@@ -439,6 +439,11 @@ export async function cancelRegistration(
       .update(registrations)
       .set({ deletedAt: new Date(), deletedByUserId: ctx.userId, cancellationReason: why })
       .where(eq(registrations.id, row.id));
+    // A cancelled registration leaves its team (history kept via removedAt).
+    await tx
+      .update(teamPlayers)
+      .set({ removedAt: new Date(), removedByUserId: ctx.userId })
+      .where(and(eq(teamPlayers.registrationId, row.id), isNull(teamPlayers.removedAt)));
     await writeAudit(
       {
         actorUserId: ctx.userId,

@@ -210,6 +210,9 @@ export default async function ProgramHubPage({ params }: { params: Promise<{ slu
                             <Link href={`${base}/seasons/${s.id}/registrations`} className="text-indigo-700 hover:underline">
                               Registrations
                             </Link>
+                            <Link href={`${base}/seasons/${s.id}/teams`} className="text-indigo-700 hover:underline">
+                              Teams
+                            </Link>
                             <Link href={`${base}/seasons/${s.id}/emergency`} className="text-indigo-700 hover:underline">
                               Emergency sheet
                             </Link>

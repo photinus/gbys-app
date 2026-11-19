@@ -629,6 +629,11 @@ export async function withdrawRegistration(ctx: SessionContext, registrationId: 
         cancellationReason: "Withdrawn by guardian",
       })
       .where(eq(registrations.id, reg.id));
+    // A withdrawn registration leaves its team (history kept via removedAt).
+    await tx
+      .update(teamPlayers)
+      .set({ removedAt: new Date(), removedByUserId: ctx.userId })
+      .where(and(eq(teamPlayers.registrationId, reg.id), isNull(teamPlayers.removedAt)));
     await writeAudit(
       {
         actorUserId: ctx.userId,
