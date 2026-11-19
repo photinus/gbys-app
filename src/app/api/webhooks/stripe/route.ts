@@ -14,9 +14,12 @@ export const dynamic = "force-dynamic";
  * Only event id and type are ever logged, never payloads.
  */
 export async function POST(req: Request) {
-  const secrets = [process.env.STRIPE_WEBHOOK_SECRET, process.env.STRIPE_CONNECT_WEBHOOK_SECRET].filter(
-    (s): s is string => !!s,
-  );
+  const platformSecret = process.env.STRIPE_WEBHOOK_SECRET || null;
+  const connectSecret = process.env.STRIPE_CONNECT_WEBHOOK_SECRET || null;
+  const secrets = [
+    { secret: platformSecret, via: "platform" as const },
+    { secret: connectSecret, via: "connect" as const },
+  ].filter((s): s is { secret: string; via: "platform" | "connect" } => !!s.secret);
   if (secrets.length === 0) {
     return NextResponse.json({ error: "Stripe webhooks are not configured." }, { status: 503 });
   }
@@ -26,15 +29,27 @@ export async function POST(req: Request) {
   const body = await req.text(); // raw body: the signature covers the exact bytes
 
   let event: Stripe.Event | null = null;
-  for (const secret of secrets) {
+  let via: "platform" | "connect" | null = null;
+  for (const s of secrets) {
     try {
-      event = Stripe.webhooks.constructEvent(body, signature, secret);
+      event = Stripe.webhooks.constructEvent(body, signature, s.secret);
+      via = s.via;
       break;
     } catch {
       /* try the next secret */
     }
   }
   if (!event) return NextResponse.json({ error: "Invalid signature." }, { status: 400 });
+
+  // Platform-endpoint events never carry `account`; Connect-endpoint events always do. An event whose
+  // signature says one thing and whose payload says the other is forged or misrouted: refuse it
+  // (200, a retry could never succeed). Skipped when one secret is deliberately used for both.
+  if (platformSecret && connectSecret && platformSecret !== connectSecret) {
+    if ((via === "platform" && event.account) || (via === "connect" && !event.account)) {
+      console.error("[stripe-webhook] event refused", { eventId: event.id, type: event.type, reason: "signing secret does not match event account scope" });
+      return NextResponse.json({ received: true, refused: true });
+    }
+  }
 
   try {
     const result = await processStripeEvent(event);

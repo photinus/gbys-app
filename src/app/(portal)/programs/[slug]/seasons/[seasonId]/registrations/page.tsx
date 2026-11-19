@@ -48,7 +48,7 @@ export default async function SeasonRegistrationsPage({
             {header.seasonName} registrations
           </h1>
           <p className="mt-1 text-sm text-stone-500">
-            Fee {formatCents(header.feeCents)}. Families pay by cash or check; record it here.
+            Fee {formatCents(header.feeCents)}. Families pay online by card where enabled, or by cash or check (record those here).
           </p>
         </div>
         <Link
