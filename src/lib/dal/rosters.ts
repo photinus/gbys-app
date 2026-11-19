@@ -27,6 +27,7 @@ import {
   type RosterFilter,
 } from "@/lib/validation/rosters";
 import { DalError, isBoard, type SessionContext } from "./context";
+import { postPaymentEventSafely } from "./finance-autopost";
 import { PROGRAM_STAFF_ROLES, assertProgramReachable, canManageProgram, canViewSeasonRoster, canViewTeam } from "./permissions";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -355,16 +356,20 @@ export async function recordOfflinePayment(
         offlineReferenceNote: data.reference || null,
       })
       .where(eq(registrations.id, row.id));
-    await tx.insert(paymentEvents).values({
-      registrationId: row.id,
-      programId: row.programId,
-      kind: "offline_payment",
-      amountCents: amount,
-      method: data.method,
-      note: data.reference || null,
-      recordedByUserId: ctx.userId,
-      occurredAt: now,
-    });
+    const [paymentEvent] = await tx
+      .insert(paymentEvents)
+      .values({
+        registrationId: row.id,
+        programId: row.programId,
+        kind: "offline_payment",
+        amountCents: amount,
+        method: data.method,
+        note: data.reference || null,
+        recordedByUserId: ctx.userId,
+        occurredAt: now,
+      })
+      .returning({ id: paymentEvents.id });
+    await postPaymentEventSafely(tx, paymentEvent.id);
     await writeAudit(
       {
         actorUserId: ctx.userId,
@@ -415,15 +420,19 @@ export async function voidOfflinePayment(
         offlineReferenceNote: null,
       })
       .where(eq(registrations.id, row.id));
-    await tx.insert(paymentEvents).values({
-      registrationId: row.id,
-      programId: row.programId,
-      kind: "offline_void",
-      amountCents: row.amountPaidCents ?? 0,
-      method: row.paymentMethod,
-      note: why,
-      recordedByUserId: ctx.userId,
-    });
+    const [voidEvent] = await tx
+      .insert(paymentEvents)
+      .values({
+        registrationId: row.id,
+        programId: row.programId,
+        kind: "offline_void",
+        amountCents: row.amountPaidCents ?? 0,
+        method: row.paymentMethod,
+        note: why,
+        recordedByUserId: ctx.userId,
+      })
+      .returning({ id: paymentEvents.id });
+    await postPaymentEventSafely(tx, voidEvent.id);
     await writeAudit(
       {
         actorUserId: ctx.userId,

@@ -33,7 +33,13 @@ export type NavIconKey =
   | "schedule"
   | "teams"
   | "facilities"
-  | "payments";
+  | "payments"
+  | "finance"
+  | "banking"
+  | "journal"
+  | "reports"
+  | "ledgerAccounts"
+  | "financeSettings";
 
 export interface NavItem {
   label: string;
@@ -51,7 +57,8 @@ export type GroupIconKey =
   | "people"
   | "operations"
   | "money"
-  | "governance";
+  | "governance"
+  | "finance";
 
 export interface NavGroup {
   id: string;
@@ -76,6 +83,8 @@ export interface NavOptions {
   isSeatedDirector?: boolean;
   /** Assigned as staff on at least one active team: "My teams" entry. */
   hasTeams?: boolean;
+  /** Finance access: org-wide level, "program" for program-scoped grants only, undefined = none. */
+  finance?: "admin" | "editor" | "viewer" | "program";
   /** FEATURE_VOLUNTEER_SHIFTS: shift scheduling entries show only when true (default off). */
   volunteerShifts?: boolean;
 }
@@ -145,6 +154,31 @@ export function getNavGroups(orgRole: OrgRole, opts: NavOptions = {}): NavGroup[
     },
     { id: "programs", title: "Programs & teams", icon: "programs", collapsible: true, items: programs },
   ];
+
+  if (opts.finance) {
+    const orgWide = opts.finance !== "program";
+    groups.push({
+      id: "finance",
+      title: "Finance",
+      icon: "finance",
+      collapsible: true,
+      defaultCollapsed: true,
+      items: [
+        { label: "Finance overview", href: "/finance", icon: "finance" },
+        ...(orgWide
+          ? [
+              { label: "Banking", href: "/finance/banking", icon: "banking" as const },
+              { label: "Journal", href: "/finance/journal", icon: "journal" as const },
+            ]
+          : []),
+        { label: "Reports", href: "/finance/reports", icon: "reports" },
+        ...(orgWide ? [{ label: "Accounts & funds", href: "/finance/accounts", icon: "ledgerAccounts" as const }] : []),
+        ...(opts.finance === "admin"
+          ? [{ label: "Finance settings", href: "/finance/settings", icon: "financeSettings" as const }]
+          : []),
+      ],
+    });
+  }
 
   if (board) {
     groups.push(

@@ -9,6 +9,7 @@ import { formatCents } from "@/lib/format";
 import { getStripe, isStripeEnabled, stripeRequestOptions } from "@/lib/stripe";
 import { reasonSchema } from "@/lib/validation/rosters";
 import { DalError, type SessionContext } from "./context";
+import { postPaymentEventSafely } from "./finance-autopost";
 import { assertProgramReachable, canManageProgram } from "./permissions";
 
 /**
@@ -242,6 +243,7 @@ export async function handleChargeRefunded(tx: DbTx, charge: Stripe.Charge, acco
       .onConflictDoNothing({ target: paymentEvents.stripeObjectId })
       .returning({ id: paymentEvents.id });
     inserted += res.length;
+    if (res.length) await postPaymentEventSafely(tx, res[0].id);
   }
 
   const refundedCents = charge.amount_refunded;
@@ -344,6 +346,7 @@ export async function handleDisputeEvent(
     .onConflictDoNothing({ target: paymentEvents.stripeObjectId })
     .returning({ id: paymentEvents.id });
   if (res.length === 0) return; // redelivery
+  await postPaymentEventSafely(tx, res[0].id);
 
   if (phase === "opened") {
     if (!reg.disputedAt) {

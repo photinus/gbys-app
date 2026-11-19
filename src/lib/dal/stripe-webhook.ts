@@ -17,6 +17,7 @@ import { writeAudit } from "@/lib/audit";
 import { escapeHtml } from "@/lib/email";
 import { formatCents } from "@/lib/format";
 import { handleAccountUpdated } from "./stripe-connect";
+import { handlePayoutEvent, postPaymentEventSafely } from "./finance-autopost";
 import { handleChargeRefunded, handleDisputeEvent } from "./stripe-refunds";
 
 /**
@@ -139,6 +140,14 @@ async function dispatch(tx: DbTx, event: Stripe.Event, afterCommit: AfterCommit)
       return;
     case "account.updated":
       await handleAccountUpdated(event.data.object as Stripe.Account);
+      return;
+    case "payout.paid":
+    case "payout.failed":
+    case "payout.canceled":
+    case "payout.updated":
+      // Platform-account payouts feed the general ledger; a connected account's payouts are not GBYS's.
+      if (acct) return;
+      await handlePayoutEvent(tx, event.data.object as Stripe.Payout, event.type);
       return;
     default:
       return; // recorded in webhook_events, nothing to do
@@ -268,6 +277,7 @@ async function applySessionPaid(
     .onConflictDoNothing({ target: paymentEvents.stripeObjectId })
     .returning({ id: paymentEvents.id });
   if (recorded.length === 0) return; // this charge is already in the ledger
+  await postPaymentEventSafely(tx, recorded[0].id);
 
   if (applicable) {
     await tx
