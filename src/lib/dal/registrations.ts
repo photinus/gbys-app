@@ -1,5 +1,5 @@
 import "server-only";
-import { and, asc, desc, eq, inArray, isNull, lte, or, gt, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, lte, notExists, or, gt, sql } from "drizzle-orm";
 import { db } from "@/db";
 import {
   athletes,
@@ -228,6 +228,94 @@ export async function listOpenSeasons(_ctx: SessionContext | null): Promise<Open
     .where(seasonIsOpen(now))
     .orderBy(asc(programs.name), asc(seasons.registrationClosesAt), asc(seasons.name));
   return rows.map(toOpenSeason);
+}
+
+export interface OpenSeasonForFamily {
+  season: OpenSeason;
+  /** Eligible, not-yet-registered athletes (first names only). */
+  athletes: { id: string; firstName: string }[];
+}
+
+/**
+ * Open seasons the signed-in user could register an athlete for right now:
+ * at least one athlete in their households (canRegister + canSignWaivers, the
+ * same rights the register flow requires; not deleted) is
+ * DOB-eligible and has no live registration for that season. Only the session
+ * user's own households are consulted; no DOB or medical data is returned.
+ * Two queries: the registerable athletes, then seasons x athletes filtered in SQL.
+ */
+export async function listOpenSeasonsForMyAthletes(
+  ctx: SessionContext,
+): Promise<{ items: OpenSeasonForFamily[]; hasRegisterableAthletes: boolean }> {
+  const mine = await db
+    .select({ id: athletes.id })
+    .from(householdGuardians)
+    .innerJoin(athletes, eq(athletes.id, householdGuardians.athleteId))
+    .where(
+      and(
+        eq(householdGuardians.userId, ctx.userId),
+        eq(householdGuardians.canRegister, true),
+        eq(householdGuardians.canSignWaivers, true),
+        isNull(athletes.deletedAt),
+      ),
+    );
+  if (mine.length === 0) return { items: [], hasRegisterableAthletes: false };
+
+  const now = new Date();
+  const rows = await db
+    .select({
+      ...openSeasonColumns,
+      athleteId: athletes.id,
+      athleteFirstName: athletes.firstName,
+    })
+    .from(seasons)
+    .innerJoin(programs, eq(programs.id, seasons.programId))
+    .innerJoin(
+      householdGuardians,
+      and(
+        eq(householdGuardians.userId, ctx.userId),
+        eq(householdGuardians.canRegister, true),
+        eq(householdGuardians.canSignWaivers, true),
+      ),
+    )
+    .innerJoin(athletes, and(eq(athletes.id, householdGuardians.athleteId), isNull(athletes.deletedAt)))
+    .where(
+      and(
+        seasonIsOpen(now),
+        or(isNull(seasons.eligibleBirthDateFrom), sql`${athletes.dateOfBirth} >= ${seasons.eligibleBirthDateFrom}`),
+        or(isNull(seasons.eligibleBirthDateTo), sql`${athletes.dateOfBirth} <= ${seasons.eligibleBirthDateTo}`),
+        notExists(
+          db
+            .select({ one: sql`1` })
+            .from(registrations)
+            .where(
+              and(
+                eq(registrations.seasonId, seasons.id),
+                eq(registrations.athleteId, athletes.id),
+                isNull(registrations.deletedAt),
+              ),
+            ),
+        ),
+      ),
+    )
+    .orderBy(
+      asc(programs.name),
+      asc(seasons.registrationClosesAt),
+      asc(seasons.name),
+      asc(athletes.firstName),
+      asc(athletes.id),
+    );
+
+  const bySeason = new Map<string, OpenSeasonForFamily>();
+  for (const r of rows) {
+    let g = bySeason.get(r.seasonId);
+    if (!g) {
+      g = { season: toOpenSeason(r), athletes: [] };
+      bySeason.set(r.seasonId, g);
+    }
+    g.athletes.push({ id: r.athleteId, firstName: r.athleteFirstName });
+  }
+  return { items: [...bySeason.values()], hasRegisterableAthletes: true };
 }
 
 /** Program + its open seasons (with form and waiver). Null if the program is unknown or inactive. */

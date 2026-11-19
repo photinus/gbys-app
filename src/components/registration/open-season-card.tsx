@@ -1,11 +1,23 @@
-import { ArrowRight, CalendarDays } from "lucide-react";
+import { ArrowRight, CalendarDays, Users } from "lucide-react";
 import Link from "next/link";
 import { Badge, buttonStyles, Card } from "@/components/ui";
 import type { OpenSeason } from "@/lib/dal/registrations";
 import { closesLabel, eligibilityLabel, feeLabel, seasonDatesLabel } from "./format";
 
+function joinNames(names: string[]): string {
+  if (names.length <= 1) return names.join("");
+  return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+}
+
 /** Public season card: only non-sensitive program / season facts. */
-export function OpenSeasonCard({ season }: { season: OpenSeason }) {
+export function OpenSeasonCard({
+  season,
+  eligibleAthletes,
+}: {
+  season: OpenSeason;
+  /** Signed-in dashboard only: first names of the family's athletes who can register. */
+  eligibleAthletes?: string[];
+}) {
   const elig = eligibilityLabel(season.eligibleBirthDateFrom, season.eligibleBirthDateTo);
   const dates = seasonDatesLabel(season.startsOn, season.endsOn);
   return (
@@ -30,6 +42,12 @@ export function OpenSeasonCard({ season }: { season: OpenSeason }) {
           </li>
         ) : null}
         {elig ? <li>{elig}</li> : null}
+        {eligibleAthletes && eligibleAthletes.length > 0 ? (
+          <li className="flex items-center gap-1.5 font-medium text-indigo-700" data-testid="season-eligible-athletes">
+            <Users className="h-3.5 w-3.5 shrink-0" aria-hidden />
+            <span className="min-w-0 break-words">For {joinNames(eligibleAthletes)}</span>
+          </li>
+        ) : null}
         <li className="font-medium text-stone-600">{closesLabel(season.closesAt)}</li>
       </ul>
       <div className="mt-auto pt-1">

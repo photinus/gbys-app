@@ -6,9 +6,11 @@ import {
   RegistrationsSection,
   RolesSection,
 } from "@/components/dashboard/dashboard-sections";
+import { OpenForFamilySection } from "@/components/dashboard/open-for-family-section";
 import { QuickLinkCard } from "@/components/dashboard/quick-link-card";
 import { requireSession } from "@/lib/dal/context";
 import { getMemberDashboard } from "@/lib/dal/dashboard";
+import { listOpenSeasonsForMyAthletes } from "@/lib/dal/registrations";
 import { isFeatureEnabled } from "@/lib/features";
 
 export const metadata: Metadata = { title: "Dashboard" };
@@ -28,7 +30,7 @@ function greeting(): string {
 
 export default async function DashboardPage() {
   const ctx = await requireSession("/dashboard");
-  const data = await getMemberDashboard(ctx);
+  const [data, family] = await Promise.all([getMemberDashboard(ctx), listOpenSeasonsForMyAthletes(ctx)]);
   const shiftsOn = isFeatureEnabled("volunteerShifts");
   const firstName = ctx.name.trim().split(/\s+/)[0] || ctx.email.split("@")[0] || "there";
 
@@ -42,6 +44,8 @@ export default async function DashboardPage() {
       </div>
 
       <AttentionSection items={data.attention} more={data.attentionMore} />
+
+      <OpenForFamilySection items={family.items} hasRegisterableAthletes={family.hasRegisterableAthletes} />
 
       <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-2">
         <HouseholdSection members={data.household} />
