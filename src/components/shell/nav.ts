@@ -27,7 +27,10 @@ export type NavIconKey =
   | "board"
   | "boardAdmin"
   | "boardVotes"
-  | "contact";
+  | "contact"
+  | "schedule"
+  | "teams"
+  | "facilities";
 
 export interface NavItem {
   label: string;
@@ -48,6 +51,8 @@ export interface NavOptions {
   isProgramStaff?: boolean;
   /** Currently seated voting director with a linked account: "My votes" entry. */
   isSeatedDirector?: boolean;
+  /** Assigned as staff on at least one active team: "My teams" entry. */
+  hasTeams?: boolean;
   /** FEATURE_VOLUNTEER_SHIFTS: shift scheduling entries show only when true (default off). */
   volunteerShifts?: boolean;
 }
@@ -61,6 +66,7 @@ export function getNavGroups(orgRole: OrgRole, opts: NavOptions = {}): NavGroup[
 
   const programs: NavItem[] = [
     ...(staff ? [{ label: board ? "Program hubs" : "My programs", href: "/programs", icon: "programHub" as const }] : []),
+    ...(opts.hasTeams ? [{ label: "My teams", href: "/teams", icon: "teams" as const }] : []),
     ...(coordinator
       ? [{ label: "Manage shifts", href: "/volunteer/shifts/manage", icon: "checkin" as const }]
       : []),
@@ -82,6 +88,7 @@ export function getNavGroups(orgRole: OrgRole, opts: NavOptions = {}): NavGroup[
       items: [
         { label: "Household", href: "/household", icon: "household" },
         { label: "Registrations", href: "/registrations", icon: "registrations" },
+        { label: "Schedule", href: "/schedule", icon: "schedule" },
       ],
     },
     {
@@ -109,6 +116,7 @@ export function getNavGroups(orgRole: OrgRole, opts: NavOptions = {}): NavGroup[
             { label: "Programs", href: "/admin/programs", icon: "programs" },
             { label: "Settings", href: "/admin/settings", icon: "settings" },
             { label: "Board of Directors", href: "/admin/board", icon: "boardAdmin" },
+            { label: "Facilities", href: "/admin/facilities", icon: "facilities" },
             { label: "Contact forms", href: "/admin/contact", icon: "contact" },
             { label: "Audit log", href: "/admin/audit", icon: "audit" },
           ]

@@ -87,7 +87,25 @@ export type AuditAction =
   | "contact_form.created"
   | "contact_form.updated"
   | "contact_submission.status_changed"
-  | "contact_submission.deleted";
+  | "contact_submission.deleted"
+  | "team.created"
+  | "team.updated"
+  | "team.player_added"
+  | "team.player_removed"
+  | "team.staff_added"
+  | "team.staff_removed"
+  | "team.calendar_token_rotated"
+  | "facility.created"
+  | "facility.updated"
+  | "booking.requested"
+  | "booking.created"
+  | "booking.approved"
+  | "booking.declined"
+  | "booking.cancelled"
+  | "team_event.created"
+  | "team_event.updated"
+  | "team_event.cancelled"
+  | "roster.exported";
 
 export type AuditTarget =
   | "athlete"
@@ -117,7 +135,11 @@ export type AuditTarget =
   | "board_motion"
   | "board_vote"
   | "contact_form"
-  | "contact_submission";
+  | "contact_submission"
+  | "team"
+  | "facility"
+  | "booking"
+  | "team_event";
 
 export async function writeAudit(
   e: {

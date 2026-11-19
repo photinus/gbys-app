@@ -23,6 +23,7 @@ export interface ShellUser {
   isShiftCoordinator?: boolean;
   isProgramStaff?: boolean;
   isSeatedDirector?: boolean;
+  hasTeams?: boolean;
 }
 
 export function UserMenu({ user }: { user: ShellUser }) {

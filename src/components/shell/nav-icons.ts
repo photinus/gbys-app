@@ -1,4 +1,7 @@
 import {
+  CalendarRange,
+  MapPinned,
+  Shirt,
   Inbox,
   Vote,
   CalendarClock,
@@ -48,4 +51,7 @@ export const NAV_ICONS: Record<NavIconKey, LucideIcon> = {
   boardAdmin: Landmark,
   boardVotes: Vote,
   contact: Inbox,
+  schedule: CalendarRange,
+  teams: Shirt,
+  facilities: MapPinned,
 };
