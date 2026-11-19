@@ -1,5 +1,7 @@
 "use server";
 
+import { getClientIp } from "@/lib/client-ip";
+
 import { headers } from "next/headers";
 import { submitContactForm } from "@/lib/dal/contact-submit";
 import type { ContactSubmitResult } from "@/lib/validation/contact-submit";
@@ -9,10 +11,9 @@ const str = (fd: FormData, key: string) => {
   return typeof v === "string" ? v : "";
 };
 
-/** First x-forwarded-for hop, else x-real-ip. */
-function clientIp(h: Headers): string | null {
-  const xff = h.get("x-forwarded-for")?.split(",")[0]?.trim();
-  return xff || h.get("x-real-ip")?.trim() || null;
+/** Trusted client IP (see src/lib/client-ip.ts). */
+function clientIp(h: Headers) {
+  return getClientIp(h);
 }
 
 /** Public action (no session): used by both /contact/[slug] and /embed/contact/[slug]. */

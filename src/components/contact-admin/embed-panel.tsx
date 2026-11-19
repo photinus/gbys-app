@@ -66,7 +66,7 @@ export function EmbedPanel({
   const valid = slugSchema.safeParse(slug).success;
   const hosted = `${appUrl}/contact/${valid ? slug : "<slug>"}`;
   const snippet =
-    `<iframe src="${appUrl}/embed/contact/${valid ? slug : "<slug>"}" title="${escAttr(title.trim() || "Contact us")}" style="width:100%;border:0;min-height:520px" loading="lazy"></iframe>\n` +
+    `<iframe src="${appUrl}/embed/contact/${valid ? slug : "<slug>"}" title="${escAttr(title.trim() || "Contact us")}" style="width:100%;border:0;min-height:240px" loading="lazy"></iframe>\n` +
     `<script src="${appUrl}/embed.js" async></script>`;
   const unsaved = savedSlug === null || savedSlug !== slug;
 
