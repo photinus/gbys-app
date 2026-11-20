@@ -12,6 +12,7 @@ import { FeePreview } from "@/components/payments-setup/fee-preview";
 import { PlatformFeeForm } from "@/components/payments-setup/platform-fee-form";
 import { DalError, isBoard, requireSession } from "@/lib/dal/context";
 import { getProgramAdmin, listCredentialOptions, listProgramRoles } from "@/lib/dal/programs";
+import { getSiteSummary } from "@/lib/dal/program-sites-admin";
 import { getProgramHub } from "@/lib/dal/seasons";
 import { getPaymentSetup } from "@/lib/dal/stripe-connect";
 import { getProgramRoleSummary } from "@/lib/dal/volunteer-roles";
@@ -30,12 +31,13 @@ export default async function ProgramDetailPage({ params }: { params: Promise<{ 
     if (err instanceof DalError && err.code === "NOT_FOUND") notFound();
     throw err;
   }
-  const [credentials, roles, hub, roleSummary, payments] = await Promise.all([
+  const [credentials, roles, hub, roleSummary, payments, siteSummary] = await Promise.all([
     listCredentialOptions(ctx, id),
     listProgramRoles(ctx, id),
     getProgramHub(ctx, program.slug),
     getProgramRoleSummary(ctx, id),
     getPaymentSetup(ctx, id),
+    getSiteSummary(ctx, id),
   ]);
   const base = `/programs/${program.slug}`;
   const activeSeasons = hub.seasons.filter((s) => s.isActive);
@@ -87,6 +89,38 @@ export default async function ProgramDetailPage({ params }: { params: Promise<{ 
             </li>
           ))}
         </ul>
+      </Card>
+
+      <Card data-testid="home-page-card">
+        <CardHeader
+          title="Home page"
+          description="Public page for this program, on a GBYS web address or its own domain"
+          action={
+            <Link href={`${base}/home-page`} className={linkCls}>
+              {siteSummary.exists ? "Edit home page" : "Set up home page"}
+            </Link>
+          }
+        />
+        <dl className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2" data-testid="home-page-summary">
+          <div>
+            <dt className="text-xs text-stone-500">Status</dt>
+            <dd>
+              <Badge tone={siteSummary.isPublished ? "success" : "neutral"}>{siteSummary.isPublished ? "Published" : "Draft"}</Badge>
+            </dd>
+          </div>
+          <div>
+            <dt className="text-xs text-stone-500">Address</dt>
+            <dd className="break-all text-charcoal">{siteSummary.pathSlug ? `/${siteSummary.pathSlug}` : <span className="text-stone-400">None</span>}</dd>
+          </div>
+          <div>
+            <dt className="text-xs text-stone-500">Custom domain</dt>
+            <dd className="break-all text-charcoal">{siteSummary.customDomain ?? <span className="text-stone-400">None</span>}</dd>
+          </div>
+          <div>
+            <dt className="text-xs text-stone-500">Listed on main site</dt>
+            <dd className="text-charcoal">{siteSummary.listOnMainSite ? "Yes" : "No (own page only)"}</dd>
+          </div>
+        </dl>
       </Card>
 
       <Card data-testid="payments-card">
