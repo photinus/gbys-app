@@ -6,6 +6,7 @@ import { SeasonStatusBadge } from "@/components/seasons/season-status-badge";
 import { Badge, Card, CardHeader, EmptyState, Table, TBody, TD, TH, THead, TR, buttonStyles } from "@/components/ui";
 import { countNewSubmissions } from "@/lib/dal/contact-forms";
 import { DalError, isBoard, requireSession } from "@/lib/dal/context";
+import { getSiteSummary } from "@/lib/dal/program-sites-admin";
 import { getProgramHub } from "@/lib/dal/seasons";
 import { getProgramRoleSummary } from "@/lib/dal/volunteer-roles";
 import { formatCents, formatDate, formatDateTime, formatDob } from "@/lib/format";
@@ -26,6 +27,7 @@ export default async function ProgramHubPage({ params }: { params: Promise<{ slu
   const showOpenColumn = canViewSeasonRoster || canViewSeasonConfig;
   const roleSummary = await getProgramRoleSummary(ctx, program.id);
   const newContact = canManage ? await countNewSubmissions(ctx, { programId: program.id }) : null;
+  const siteSummary = canManage ? await getSiteSummary(ctx, program.id) : null;
   const base = `/programs/${program.slug}`;
   const board = isBoard(ctx);
 
@@ -129,6 +131,26 @@ export default async function ProgramHubPage({ params }: { params: Promise<{ slu
           </Badge>
         </div>
       </Card>
+
+      {siteSummary ? (
+        <Card data-testid="home-page-card">
+          <CardHeader
+            title="Home page"
+            description="A public page for this program that you can share with families"
+            action={
+              <Link href={`${base}/home-page`} data-testid="home-page-link" className={buttonStyles({ size: "sm", variant: "secondary" })}>
+                {siteSummary.exists ? "Edit home page" : "Set up home page"}
+              </Link>
+            }
+          />
+          <div className="flex flex-wrap items-center gap-2 text-sm" data-testid="home-page-summary">
+            <Badge tone={siteSummary.isPublished ? "success" : "neutral"}>{siteSummary.isPublished ? "Published" : "Draft"}</Badge>
+            {siteSummary.pathSlug ? <span className="break-all text-xs text-stone-600">/{siteSummary.pathSlug}</span> : null}
+            {siteSummary.customDomain ? <span className="break-all text-xs text-stone-600">{siteSummary.customDomain}</span> : null}
+            {!siteSummary.pathSlug && !siteSummary.customDomain ? <span className="text-xs text-stone-500">No address yet</span> : null}
+          </div>
+        </Card>
+      ) : null}
 
       {newContact !== null ? (
         <Card>

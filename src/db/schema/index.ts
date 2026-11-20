@@ -10,4 +10,5 @@ export * from "./board";
 export * from "./contact";
 export * from "./teams";
 export * from "./finance";
+export * from "./sites";
 export * from "./relations";

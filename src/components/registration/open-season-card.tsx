@@ -13,10 +13,13 @@ function joinNames(names: string[]): string {
 export function OpenSeasonCard({
   season,
   eligibleAthletes,
+  registerHref,
 }: {
   season: OpenSeason;
   /** Signed-in dashboard only: first names of the family's athletes who can register. */
   eligibleAthletes?: string[];
+  /** Override the Register link (program home pages on a custom domain need an absolute URL). */
+  registerHref?: string;
 }) {
   const elig = eligibilityLabel(season.eligibleBirthDateFrom, season.eligibleBirthDateTo);
   const dates = seasonDatesLabel(season.startsOn, season.endsOn);
@@ -52,7 +55,7 @@ export function OpenSeasonCard({
       </ul>
       <div className="mt-auto pt-1">
         <Link
-          href={`/register/${season.program.slug}`}
+          href={registerHref ?? `/register/${season.program.slug}`}
           className={buttonStyles({ size: "sm" })}
           aria-label={`Register for ${season.program.name}, ${season.name}`}
         >
