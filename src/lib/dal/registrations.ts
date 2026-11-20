@@ -225,7 +225,23 @@ export async function listOpenSeasons(_ctx: SessionContext | null): Promise<Open
     .select(openSeasonColumns)
     .from(seasons)
     .innerJoin(programs, eq(programs.id, seasons.programId))
-    .where(seasonIsOpen(now))
+    .where(and(seasonIsOpen(now), eq(programs.listOnMainSite, true)))
+    .orderBy(asc(programs.name), asc(seasons.registrationClosesAt), asc(seasons.name));
+  return rows.map(toOpenSeason);
+}
+
+/**
+ * Open seasons of ONE program (its public home page). Same open rule and ordering as
+ * listOpenSeasons, but ignores `listOnMainSite`: a hidden program still lists its own seasons.
+ */
+export async function listOpenSeasonsForProgram(programId: string): Promise<OpenSeason[]> {
+  if (!/^[0-9a-f-]{36}$/i.test(programId)) return [];
+  const now = new Date();
+  const rows = await db
+    .select(openSeasonColumns)
+    .from(seasons)
+    .innerJoin(programs, eq(programs.id, seasons.programId))
+    .where(and(seasonIsOpen(now), eq(seasons.programId, programId)))
     .orderBy(asc(programs.name), asc(seasons.registrationClosesAt), asc(seasons.name));
   return rows.map(toOpenSeason);
 }
@@ -282,6 +298,7 @@ export async function listOpenSeasonsForMyAthletes(
     .where(
       and(
         seasonIsOpen(now),
+        eq(programs.listOnMainSite, true),
         or(isNull(seasons.eligibleBirthDateFrom), sql`${athletes.dateOfBirth} >= ${seasons.eligibleBirthDateFrom}`),
         or(isNull(seasons.eligibleBirthDateTo), sql`${athletes.dateOfBirth} <= ${seasons.eligibleBirthDateTo}`),
         notExists(
