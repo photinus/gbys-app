@@ -37,6 +37,10 @@ export interface FinanceSettingsView {
   stripePayoutAccountId: string | null;
   autoPostStartDate: string | null;
   dualApprovalThresholdCents: number | null;
+  receiptSignerName: string | null;
+  receiptSignerTitle: string | null;
+  receiptMessage: string | null;
+  invoicePaymentInstructions: string | null;
   updatedAt: Date;
   updatedByName: string | null;
   /** Active bank/cash accounts Stripe payouts can land in. */
@@ -79,6 +83,10 @@ export async function getFinanceSettings(ctx: SessionContext): Promise<FinanceSe
     stripePayoutAccountId: row.s.stripePayoutAccountId,
     autoPostStartDate: row.s.autoPostStartDate,
     dualApprovalThresholdCents: row.s.dualApprovalThresholdCents,
+    receiptSignerName: row.s.receiptSignerName,
+    receiptSignerTitle: row.s.receiptSignerTitle,
+    receiptMessage: row.s.receiptMessage,
+    invoicePaymentInstructions: row.s.invoicePaymentInstructions,
     updatedAt: row.s.updatedAt,
     updatedByName: row.updatedByName,
     bankAccounts,
@@ -118,6 +126,10 @@ export async function updateFinanceSettings(ctx: SessionContext, input: Settings
     cmp("stripePayoutAccountId", old.stripePayoutAccountId, d.stripePayoutAccountId);
     cmp("autoPostStartDate", old.autoPostStartDate, d.autoPostStartDate);
     cmp("dualApprovalThresholdCents", old.dualApprovalThresholdCents, d.dualApprovalThresholdDollars);
+    cmp("receiptSignerName", old.receiptSignerName, d.receiptSignerName);
+    cmp("receiptSignerTitle", old.receiptSignerTitle, d.receiptSignerTitle);
+    cmp("receiptMessage", old.receiptMessage, d.receiptMessage);
+    cmp("invoicePaymentInstructions", old.invoicePaymentInstructions, d.invoicePaymentInstructions);
     const changed = Object.keys(changes);
     if (changed.length === 0) return { changed };
     await tx
@@ -127,6 +139,10 @@ export async function updateFinanceSettings(ctx: SessionContext, input: Settings
         stripePayoutAccountId: d.stripePayoutAccountId,
         autoPostStartDate: d.autoPostStartDate,
         dualApprovalThresholdCents: d.dualApprovalThresholdDollars,
+        receiptSignerName: d.receiptSignerName,
+        receiptSignerTitle: d.receiptSignerTitle,
+        receiptMessage: d.receiptMessage,
+        invoicePaymentInstructions: d.invoicePaymentInstructions,
         updatedByUserId: ctx.userId,
       })
       .where(eq(finSettings.id, 1));

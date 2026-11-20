@@ -32,7 +32,7 @@ import {
 import { addDays, fiscalYearOf, laToday, type IsoDate } from "@/lib/finance/dates";
 import { DalError, type SessionContext } from "./context";
 import { requireFinance, viewableProgramIds, canViewAllFinance, type FinanceAccess } from "./finance-access";
-import { sumLines } from "./finance-ledger";
+import { sumLines, type AccountTotalsFilter } from "./finance-ledger";
 
 /**
  * Finance reports (workstream FD). Read-only. Every function authorizes with requireFinance:
@@ -143,6 +143,36 @@ async function loadPrograms(): Promise<Array<{ id: string; name: string }>> {
   return db.select({ id: programs.id, name: programs.name }).from(programs).orderBy(asc(programs.name));
 }
 
+/**
+ * Finance 2: net-asset lines of explicit fund_release entries (non-voided), grouped like sumLines.
+ * Same filters as sumLines (dates, program, fund). Feeds the "released from restrictions" math.
+ */
+async function sumReleaseLines(f: AccountTotalsFilter = {}): Promise<LineTotals[]> {
+  const conds = [sql`e.voided_at is null`, sql`e.source = 'fund_release'`];
+  if (f.from) conds.push(sql`e.entry_date >= ${f.from}::date`);
+  if (f.to) conds.push(sql`e.entry_date <= ${f.to}::date`);
+  if (f.fundId) conds.push(sql`l.fund_id = ${f.fundId}::uuid`);
+  if (f.programIds && f.programIds !== "all") {
+    if (f.programIds.length === 0) return [];
+    conds.push(sql`l.program_id in (${sql.join(f.programIds.map((p) => sql`${p}::uuid`), sql`, `)})`);
+  }
+  const res = await db.execute<{ account_id: string; fund_id: string; program_id: string | null; debit: string; credit: string }>(sql`
+    select l.account_id, l.fund_id, l.program_id,
+           coalesce(sum(l.debit_cents), 0)::text as debit, coalesce(sum(l.credit_cents), 0)::text as credit
+    from fin_journal_lines l
+    join fin_journal_entries e on e.id = l.entry_id
+    where ${sql.join(conds, sql` and `)}
+    group by l.account_id, l.fund_id, l.program_id
+  `);
+  return res.rows.map((r) => ({
+    accountId: r.account_id,
+    fundId: r.fund_id,
+    programId: r.program_id,
+    debitCents: Number(r.debit),
+    creditCents: Number(r.credit),
+  }));
+}
+
 function rangeOf(meta: ReportMeta, q: ReportQuery): DateRange {
   return resolveRange(q.from, q.to, { from: meta.fy.from, to: meta.fy.to });
 }
@@ -216,21 +246,25 @@ export async function getStatementOfActivities(ctx: SessionContext, q: ReportQue
   const range = rangeOf(meta, q);
   const programFilter = parseProgramFilter(q.program, programIds);
   const fundFilter = parseFundFilter(q.fund);
-  const [{ accounts, funds }, rawRows] = await Promise.all([
+  const [{ accounts, funds }, rawRows, rawReleases] = await Promise.all([
     loadChart(),
     sumLines(db, { from: range.from, to: range.to, programIds, fundId: fundFilter }),
+    sumReleaseLines({ from: range.from, to: range.to, programIds, fundId: fundFilter }),
   ]);
   const rows = programFilter === undefined ? rawRows : rawRows.filter((r) => r.programId === programFilter);
-  const activities = buildActivities(accounts, funds, rows);
+  const releaseRows = programFilter === undefined ? rawReleases : rawReleases.filter((r) => r.programId === programFilter);
+  const activities = buildActivities(accounts, funds, rows, releaseRows);
 
   let netAssets: ActivitiesNetAssets | null = null;
   if (meta.canViewAll && programFilter === undefined && !fundFilter) {
-    const [beforeRows, endRows] = await Promise.all([
+    const [beforeRows, endRows, beforeReleases, endReleases] = await Promise.all([
       sumLines(db, { to: addDays(range.from, -1) }),
       sumLines(db, { to: range.to }),
+      sumReleaseLines({ to: addDays(range.from, -1) }),
+      sumReleaseLines({ to: range.to }),
     ]);
-    const beginning = computeNetAssets(accounts, funds, beforeRows);
-    const ending = computeNetAssets(accounts, funds, endRows);
+    const beginning = computeNetAssets(accounts, funds, beforeRows, beforeReleases);
+    const ending = computeNetAssets(accounts, funds, endRows, endReleases);
     netAssets = {
       beginning,
       ending,
@@ -258,6 +292,8 @@ export async function getFinancialPosition(ctx: SessionContext, q: ReportQuery =
   const { meta } = await base(ctx, "view_all");
   const asOf = resolveAsOf(q.asOf, meta.today);
   const [{ accounts, funds }, rows] = await Promise.all([loadChart(), sumLines(db, { to: asOf })]);
+  // Explicit fund releases only move net assets between classes, so the sheet balances without them;
+  // buildFinancialPosition needs no release rows.
   return { meta, asOf, position: buildFinancialPosition(accounts, funds, rows) };
 }
 
@@ -435,16 +471,17 @@ export interface FundBalancesReport {
 export async function getFundBalances(ctx: SessionContext, q: ReportQuery = {}): Promise<FundBalancesReport> {
   const { programIds, meta } = await base(ctx, "any");
   const range = rangeOf(meta, q);
-  const [{ accounts, funds }, progs, before, during] = await Promise.all([
+  const [{ accounts, funds }, progs, before, during, duringReleases] = await Promise.all([
     loadChart(),
     loadPrograms(),
     sumLines(db, { to: addDays(range.from, -1) }),
     sumLines(db, { from: range.from, to: range.to }),
+    sumReleaseLines({ from: range.from, to: range.to }),
   ]);
   // Program-scoped users see only funds linked to their programs (the fund's whole balance, whatever
   // program class its lines carry).
   const visibleFunds = programIds === "all" ? funds : funds.filter((f) => f.programId && programIds.includes(f.programId));
-  const balances = buildFundBalances(accounts, visibleFunds, before, during);
+  const balances = buildFundBalances(accounts, visibleFunds, before, during, duringReleases);
   const progName = new Map(progs.map((p) => [p.id, p.name]));
   const programNames: Record<string, string> = {};
   for (const f of visibleFunds) if (f.programId) programNames[f.id] = progName.get(f.programId) ?? "";
@@ -673,12 +710,13 @@ export async function exportReportCsv(ctx: SessionContext, report: ReportKey, q:
         $(f.adjustmentsCents),
         $(f.revenueCents),
         $(f.expensesCents),
+        $(-f.releasesCents),
         $(f.closingCents),
         f.negative ? "NEGATIVE" : "",
       ]);
       out = {
         csv: buildCsv(
-          ["Fund", "Restriction", "Program", "Opening balance", "Opening balances & transfers posted", "Revenue", "Expenses (released)", "Closing balance", "Flag"],
+          ["Fund", "Restriction", "Program", "Opening balance", "Opening balances & transfers posted", "Revenue", "Expenses (released)", "Released to General Fund (manual)", "Closing balance", "Flag"],
           rows,
         ),
         filename: "",

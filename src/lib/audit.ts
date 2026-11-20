@@ -143,7 +143,34 @@ export type AuditAction =
   | "finance.reconciliation_started"
   | "finance.reconciliation_completed"
   | "finance.reconciliation_discarded"
-  | "finance.report_exported";
+  | "finance.report_exported"
+  | "finance.contact_created"
+  | "finance.contact_updated"
+  | "finance.tax_id_viewed"
+  | "finance.attachment_added"
+  | "finance.attachment_removed"
+  | "finance.bill_created"
+  | "finance.bill_updated"
+  | "finance.bill_submitted"
+  | "finance.bill_approved"
+  | "finance.bill_rejected"
+  | "finance.bill_voided"
+  | "finance.reimbursement_submitted"
+  | "finance.payment_recorded"
+  | "finance.payment_voided"
+  | "finance.invoice_created"
+  | "finance.invoice_updated"
+  | "finance.invoice_issued"
+  | "finance.invoice_sent"
+  | "finance.invoice_voided"
+  | "finance.gift_recorded"
+  | "finance.gift_updated"
+  | "finance.gift_voided"
+  | "finance.receipt_sent"
+  | "finance.fund_released"
+  | "finance.budget_created"
+  | "finance.budget_updated"
+  | "finance.budget_adopted";
 
 export type AuditTarget =
   | "athlete"
@@ -188,7 +215,15 @@ export type AuditTarget =
   | "fin_bank_txn"
   | "fin_rule"
   | "fin_reconciliation"
-  | "fin_report";
+  | "fin_report"
+  | "fin_contact"
+  | "fin_attachment"
+  | "fin_bill"
+  | "fin_payment"
+  | "fin_invoice"
+  | "fin_gift"
+  | "fin_receipt"
+  | "fin_budget";
 
 export async function writeAudit(
   e: {

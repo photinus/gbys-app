@@ -141,6 +141,11 @@ export const finSettings = pgTable(
     autoPostStartDate: date("auto_post_start_date"),
     // Finance 2: bills at/above this amount need two approvers. Null = single approval.
     dualApprovalThresholdCents: integer("dual_approval_threshold_cents"),
+    // Finance 2: donor receipts and invoices.
+    receiptSignerName: text("receipt_signer_name"),
+    receiptSignerTitle: text("receipt_signer_title"),
+    receiptMessage: text("receipt_message"), // thank-you paragraph on receipts
+    invoicePaymentInstructions: text("invoice_payment_instructions"),
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .notNull()
       .defaultNow()
@@ -423,3 +428,435 @@ export const finStripePayouts = pgTable("fin_stripe_payouts", {
     .defaultNow()
     .$onUpdate(() => new Date()),
 });
+
+// ============================================================================
+// Finance 2: contacts, payables (bills & reimbursements), receivables
+// (invoices), payments, donations & receipts, budgets, attachments.
+// ============================================================================
+
+export const finBillKindEnum = pgEnum("fin_bill_kind", ["bill", "reimbursement"]);
+export const finBillStatusEnum = pgEnum("fin_bill_status", [
+  "draft",
+  "pending_approval",
+  "approved", // posted to the ledger, unpaid
+  "partially_paid",
+  "paid",
+  "rejected",
+  "void",
+]);
+export const finApprovalDecisionEnum = pgEnum("fin_approval_decision", ["approve", "reject"]);
+export const finPaymentDirectionEnum = pgEnum("fin_payment_direction", ["out", "in"]);
+export const finPaymentMethodEnum = pgEnum("fin_payment_method", ["check", "ach", "card", "cash", "stripe", "other"]);
+export const finInvoiceStatusEnum = pgEnum("fin_invoice_status", ["draft", "open", "partially_paid", "paid", "void"]);
+export const finGiftKindEnum = pgEnum("fin_gift_kind", ["cash", "check", "card", "ach", "stripe", "in_kind", "other"]);
+export const finReceiptKindEnum = pgEnum("fin_receipt_kind", ["gift", "annual"]);
+export const finBudgetStatusEnum = pgEnum("fin_budget_status", ["draft", "adopted"]);
+
+/**
+ * People and organizations we pay (vendors), bill (customers) or receive gifts from
+ * (donors). One row can play several roles. `userId` links an app user (e.g. a
+ * volunteer being reimbursed, or a parent who donates). Tax ids are encrypted
+ * (src/lib/crypto.ts); only the last 4 digits are ever shown.
+ */
+export const finContacts = pgTable(
+  "fin_contacts",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    displayName: text("display_name").notNull(),
+    kind: text("kind").notNull().default("organization"), // "individual" | "organization"
+    email: text("email"),
+    phone: text("phone"),
+    addressLine1: text("address_line1"),
+    addressLine2: text("address_line2"),
+    city: text("city"),
+    state: text("state"),
+    postalCode: text("postal_code"),
+    isVendor: boolean("is_vendor").notNull().default(false),
+    isCustomer: boolean("is_customer").notNull().default(false),
+    isDonor: boolean("is_donor").notNull().default(false),
+    userId: text("user_id").references(() => users.id),
+    // 1099 / W-9
+    is1099: boolean("is_1099").notNull().default(false),
+    taxIdType: text("tax_id_type"), // "ssn" | "ein"
+    taxIdCiphertext: text("tax_id_ciphertext"),
+    taxIdLast4: text("tax_id_last4"),
+    w9ReceivedOn: date("w9_received_on"),
+    defaultAccountId: uuid("default_account_id").references(() => finAccounts.id),
+    notes: text("notes"),
+    isActive: boolean("is_active").notNull().default(true),
+    createdByUserId: text("created_by_user_id").references(() => users.id),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (t) => [
+    index("fin_contacts_name_idx").on(t.displayName),
+    uniqueIndex("fin_contacts_user_idx").on(t.userId).where(sql`${t.userId} is not null`),
+  ]
+);
+
+/**
+ * Bills (vendor invoices we owe) and reimbursements (a member paid out of pocket).
+ * Lines are editable only while draft / pending_approval / rejected; the final
+ * approval posts Dr line accounts / Cr A/P (2000) or Reimbursements payable (2010).
+ */
+export const finBills = pgTable(
+  "fin_bills",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    kind: finBillKindEnum("kind").notNull(),
+    contactId: uuid("contact_id")
+      .notNull()
+      .references(() => finContacts.id),
+    // Reimbursements: the member being paid back (also the submitter).
+    payeeUserId: text("payee_user_id").references(() => users.id),
+    vendorInvoiceNumber: text("vendor_invoice_number"),
+    // Program the bill belongs to (scopes program-editor access); null = organization-wide.
+    programId: uuid("program_id").references(() => programs.id),
+    billDate: date("bill_date").notNull(),
+    dueDate: date("due_date"),
+    memo: text("memo").notNull(),
+    totalCents: integer("total_cents").notNull().default(0),
+    paidCents: integer("paid_cents").notNull().default(0),
+    status: finBillStatusEnum("status").notNull().default("draft"),
+    // Snapshot at submission: 1, or 2 when total >= fin_settings.dual_approval_threshold_cents.
+    approvalsRequired: integer("approvals_required").notNull().default(1),
+    createdByUserId: text("created_by_user_id")
+      .notNull()
+      .references(() => users.id),
+    submittedByUserId: text("submitted_by_user_id").references(() => users.id),
+    submittedAt: timestamp("submitted_at", { withTimezone: true }),
+    journalEntryId: uuid("journal_entry_id").references(() => finJournalEntries.id),
+    rejectedReason: text("rejected_reason"),
+    voidedAt: timestamp("voided_at", { withTimezone: true }),
+    voidedByUserId: text("voided_by_user_id").references(() => users.id),
+    voidReason: text("void_reason"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (t) => [
+    index("fin_bills_status_idx").on(t.status, t.dueDate),
+    index("fin_bills_contact_idx").on(t.contactId),
+    index("fin_bills_program_idx").on(t.programId),
+    index("fin_bills_payee_idx").on(t.payeeUserId),
+    check("fin_bills_amounts_chk", sql`${t.totalCents} >= 0 and ${t.paidCents} >= 0 and ${t.paidCents} <= ${t.totalCents}`),
+    check("fin_bills_approvals_chk", sql`${t.approvalsRequired} between 1 and 2`),
+  ]
+);
+
+export const finBillLines = pgTable(
+  "fin_bill_lines",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    billId: uuid("bill_id")
+      .notNull()
+      .references(() => finBills.id),
+    lineNo: integer("line_no").notNull(),
+    accountId: uuid("account_id")
+      .notNull()
+      .references(() => finAccounts.id),
+    fundId: uuid("fund_id").references(() => finFunds.id), // null = General Fund
+    programId: uuid("program_id").references(() => programs.id),
+    amountCents: integer("amount_cents").notNull(),
+    description: text("description"),
+  },
+  (t) => [index("fin_bill_lines_bill_idx").on(t.billId), check("fin_bill_lines_amount_chk", sql`${t.amountCents} > 0`)]
+);
+
+/** Approval decisions (insert-only). Approver must differ from creator/submitter/payee; one decision per user per submission. */
+export const finBillApprovals = pgTable(
+  "fin_bill_approvals",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    billId: uuid("bill_id")
+      .notNull()
+      .references(() => finBills.id),
+    // Which submission this decision belongs to (bills can be rejected, edited and resubmitted).
+    submittedAt: timestamp("submitted_at", { withTimezone: true }).notNull(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id),
+    decision: finApprovalDecisionEnum("decision").notNull(),
+    note: text("note"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("fin_bill_approvals_once_idx").on(t.billId, t.submittedAt, t.userId)]
+);
+
+/**
+ * Customer invoices (sponsorships, partner-league facility fees, …). Issuing posts
+ * Dr A/R (1200) / Cr line revenue accounts. Number comes from fin_invoice_number_seq.
+ */
+export const finInvoices = pgTable(
+  "fin_invoices",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    number: integer("number").notNull(),
+    contactId: uuid("contact_id")
+      .notNull()
+      .references(() => finContacts.id),
+    programId: uuid("program_id").references(() => programs.id),
+    issueDate: date("issue_date").notNull(),
+    dueDate: date("due_date"),
+    memo: text("memo"),
+    totalCents: integer("total_cents").notNull().default(0),
+    paidCents: integer("paid_cents").notNull().default(0),
+    status: finInvoiceStatusEnum("status").notNull().default("draft"),
+    journalEntryId: uuid("journal_entry_id").references(() => finJournalEntries.id),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+    sentToEmail: text("sent_to_email"),
+    createdByUserId: text("created_by_user_id")
+      .notNull()
+      .references(() => users.id),
+    voidedAt: timestamp("voided_at", { withTimezone: true }),
+    voidedByUserId: text("voided_by_user_id").references(() => users.id),
+    voidReason: text("void_reason"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (t) => [
+    uniqueIndex("fin_invoices_number_idx").on(t.number),
+    index("fin_invoices_status_idx").on(t.status, t.dueDate),
+    index("fin_invoices_contact_idx").on(t.contactId),
+    check("fin_invoices_amounts_chk", sql`${t.totalCents} >= 0 and ${t.paidCents} >= 0 and ${t.paidCents} <= ${t.totalCents}`),
+  ]
+);
+
+export const finInvoiceLines = pgTable(
+  "fin_invoice_lines",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    invoiceId: uuid("invoice_id")
+      .notNull()
+      .references(() => finInvoices.id),
+    lineNo: integer("line_no").notNull(),
+    accountId: uuid("account_id")
+      .notNull()
+      .references(() => finAccounts.id),
+    fundId: uuid("fund_id").references(() => finFunds.id),
+    programId: uuid("program_id").references(() => programs.id),
+    amountCents: integer("amount_cents").notNull(),
+    description: text("description").notNull(),
+  },
+  (t) => [index("fin_invoice_lines_invoice_idx").on(t.invoiceId), check("fin_invoice_lines_amount_chk", sql`${t.amountCents} > 0`)]
+);
+
+/**
+ * Money out (bill/reimbursement payments) or in (invoice payments). One payment can
+ * settle several bills or invoices (fin_payment_applications). Posting:
+ * out = Dr A/P or 2010 / Cr bank; in = Dr bank or Undeposited funds / Cr A/R.
+ */
+export const finPayments = pgTable(
+  "fin_payments",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    direction: finPaymentDirectionEnum("direction").notNull(),
+    contactId: uuid("contact_id")
+      .notNull()
+      .references(() => finContacts.id),
+    paymentDate: date("payment_date").notNull(),
+    amountCents: integer("amount_cents").notNull(),
+    method: finPaymentMethodEnum("method").notNull(),
+    reference: text("reference"), // check number, confirmation code
+    // Bank/cash GL account the money left from or landed in (isBank, or undeposited funds).
+    accountId: uuid("account_id")
+      .notNull()
+      .references(() => finAccounts.id),
+    memo: text("memo"),
+    journalEntryId: uuid("journal_entry_id").references(() => finJournalEntries.id),
+    createdByUserId: text("created_by_user_id")
+      .notNull()
+      .references(() => users.id),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    voidedAt: timestamp("voided_at", { withTimezone: true }),
+    voidedByUserId: text("voided_by_user_id").references(() => users.id),
+    voidReason: text("void_reason"),
+  },
+  (t) => [
+    index("fin_payments_contact_idx").on(t.contactId, t.paymentDate),
+    check("fin_payments_amount_chk", sql`${t.amountCents} > 0`),
+  ]
+);
+
+export const finPaymentApplications = pgTable(
+  "fin_payment_applications",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    paymentId: uuid("payment_id")
+      .notNull()
+      .references(() => finPayments.id),
+    billId: uuid("bill_id").references(() => finBills.id),
+    invoiceId: uuid("invoice_id").references(() => finInvoices.id),
+    amountCents: integer("amount_cents").notNull(),
+  },
+  (t) => [
+    index("fin_payment_apps_payment_idx").on(t.paymentId),
+    index("fin_payment_apps_bill_idx").on(t.billId),
+    index("fin_payment_apps_invoice_idx").on(t.invoiceId),
+    check("fin_payment_apps_target_chk", sql`(${t.billId} is null) <> (${t.invoiceId} is null)`),
+    check("fin_payment_apps_amount_chk", sql`${t.amountCents} > 0`),
+  ]
+);
+
+/**
+ * Donations. Posting (source "donation", sourceRef gift id): Dr deposit account
+ * (bank / undeposited funds) / Cr revenue account (default 4010 contributions) in
+ * the chosen fund + program. In-kind: Dr inKindDebitAccountId (expense or asset) /
+ * Cr 4070. `goodsServicesCents` = quid-pro-quo value shown on the receipt.
+ */
+export const finGifts = pgTable(
+  "fin_gifts",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    donorContactId: uuid("donor_contact_id").references(() => finContacts.id), // null = anonymous cash
+    giftDate: date("gift_date").notNull(),
+    amountCents: integer("amount_cents").notNull(),
+    kind: finGiftKindEnum("kind").notNull(),
+    fundId: uuid("fund_id")
+      .notNull()
+      .references(() => finFunds.id),
+    programId: uuid("program_id").references(() => programs.id),
+    revenueAccountId: uuid("revenue_account_id")
+      .notNull()
+      .references(() => finAccounts.id),
+    depositAccountId: uuid("deposit_account_id").references(() => finAccounts.id), // null for in-kind
+    inKindDebitAccountId: uuid("in_kind_debit_account_id").references(() => finAccounts.id),
+    inKindDescription: text("in_kind_description"),
+    goodsServicesCents: integer("goods_services_cents").notNull().default(0),
+    goodsServicesDescription: text("goods_services_description"),
+    campaign: text("campaign"),
+    reference: text("reference"), // check number etc.
+    isAnonymous: boolean("is_anonymous").notNull().default(false), // hide name in public/board lists
+    note: text("note"),
+    journalEntryId: uuid("journal_entry_id").references(() => finJournalEntries.id),
+    createdByUserId: text("created_by_user_id")
+      .notNull()
+      .references(() => users.id),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    voidedAt: timestamp("voided_at", { withTimezone: true }),
+    voidedByUserId: text("voided_by_user_id").references(() => users.id),
+    voidReason: text("void_reason"),
+  },
+  (t) => [
+    index("fin_gifts_donor_idx").on(t.donorContactId, t.giftDate),
+    index("fin_gifts_date_idx").on(t.giftDate),
+    index("fin_gifts_fund_idx").on(t.fundId),
+    check("fin_gifts_amount_chk", sql`${t.amountCents} > 0`),
+    check("fin_gifts_qpq_chk", sql`${t.goodsServicesCents} >= 0 and ${t.goodsServicesCents} <= ${t.amountCents}`),
+    check(
+      "fin_gifts_kind_chk",
+      sql`(${t.kind} = 'in_kind') = (${t.depositAccountId} is null) and (${t.kind} <> 'in_kind' or ${t.inKindDebitAccountId} is not null)`
+    ),
+  ]
+);
+
+/**
+ * Donation acknowledgments sent (insert-only log): a receipt for one gift, or an
+ * annual (calendar-year) statement for a donor. `amountCents` / `deductibleCents`
+ * snapshot what the receipt said.
+ */
+export const finReceipts = pgTable(
+  "fin_receipts",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    kind: finReceiptKindEnum("kind").notNull(),
+    giftId: uuid("gift_id").references(() => finGifts.id),
+    contactId: uuid("contact_id")
+      .notNull()
+      .references(() => finContacts.id),
+    taxYear: integer("tax_year"),
+    method: text("method").notNull(), // "email" | "print" | "mail"
+    sentTo: text("sent_to"),
+    amountCents: integer("amount_cents").notNull(),
+    deductibleCents: integer("deductible_cents").notNull(),
+    sentByUserId: text("sent_by_user_id")
+      .notNull()
+      .references(() => users.id),
+    sentAt: timestamp("sent_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("fin_receipts_gift_idx").on(t.giftId),
+    index("fin_receipts_contact_idx").on(t.contactId, t.taxYear),
+    check(
+      "fin_receipts_kind_chk",
+      sql`(${t.kind} = 'gift' and ${t.giftId} is not null) or (${t.kind} = 'annual' and ${t.taxYear} is not null)`
+    ),
+  ]
+);
+
+/** Annual operating budget. Amounts per month starting at the fiscal year's first month. */
+export const finBudgets = pgTable("fin_budgets", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  name: text("name").notNull(),
+  fiscalYearStart: date("fiscal_year_start").notNull(),
+  fiscalYearEnd: date("fiscal_year_end").notNull(),
+  status: finBudgetStatusEnum("status").notNull().default("draft"),
+  notes: text("notes"),
+  adoptedAt: timestamp("adopted_at", { withTimezone: true }),
+  adoptedByUserId: text("adopted_by_user_id").references(() => users.id),
+  createdByUserId: text("created_by_user_id")
+    .notNull()
+    .references(() => users.id),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .notNull()
+    .defaultNow()
+    .$onUpdate(() => new Date()),
+});
+
+export const finBudgetLines = pgTable(
+  "fin_budget_lines",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    budgetId: uuid("budget_id")
+      .notNull()
+      .references(() => finBudgets.id),
+    accountId: uuid("account_id")
+      .notNull()
+      .references(() => finAccounts.id),
+    programId: uuid("program_id").references(() => programs.id),
+    // 12 monthly amounts (cents, natural sign: revenue and expense both positive).
+    monthlyCents: integer("monthly_cents").array().notNull(),
+    note: text("note"),
+  },
+  (t) => [
+    uniqueIndex("fin_budget_lines_key_idx").on(
+      t.budgetId,
+      t.accountId,
+      sql`coalesce(${t.programId}, '00000000-0000-0000-0000-000000000000'::uuid)`
+    ),
+    check("fin_budget_lines_months_chk", sql`cardinality(${t.monthlyCents}) = 12`),
+  ]
+);
+
+/** Files attached to finance records (bill/receipt images, invoices, W-9s), stored in the private bucket. */
+export const finAttachments = pgTable(
+  "fin_attachments",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    ownerType: text("owner_type").notNull(), // "bill" | "invoice" | "gift" | "contact_w9"
+    ownerId: uuid("owner_id").notNull(),
+    objectKey: text("object_key").notNull(),
+    fileName: text("file_name").notNull(),
+    contentType: text("content_type").notNull(),
+    sizeBytes: integer("size_bytes").notNull(),
+    uploadedByUserId: text("uploaded_by_user_id")
+      .notNull()
+      .references(() => users.id),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    deletedByUserId: text("deleted_by_user_id").references(() => users.id),
+  },
+  (t) => [
+    index("fin_attachments_owner_idx").on(t.ownerType, t.ownerId),
+    check("fin_attachments_owner_chk", sql`${t.ownerType} in ('bill', 'invoice', 'gift', 'contact_w9')`),
+  ]
+);

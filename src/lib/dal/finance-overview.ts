@@ -17,6 +17,9 @@ import type { RestrictionValue } from "@/lib/validation/finance-gl";
 import type { SessionContext } from "./context";
 import { canViewAllFinance, requireFinance, viewableProgramIds, type FinanceLevel } from "./finance-access";
 import { listFunds } from "./finance-accounts";
+import { getPayablesSummary, type PayablesSummary } from "./finance-bills";
+import { getGiftReceiptSummary, type GiftReceiptSummary } from "./finance-donations";
+import { getInvoiceSummary, type InvoiceSummary } from "./finance-invoices";
 import { naturalBalance, sumLines, type FinAccountType } from "./finance-ledger";
 
 export interface ChecklistItem {
@@ -60,6 +63,9 @@ export interface OrgOverview {
   needsReviewCount: number;
   lockDate: string | null;
   checklist: ChecklistItem[];
+  payables: PayablesSummary;
+  receivables: InvoiceSummary;
+  gifts: GiftReceiptSummary;
 }
 
 export interface ProgramOverview {
@@ -67,6 +73,7 @@ export interface ProgramOverview {
   fiscalYear: { start: string; end: string; label: string };
   programs: { id: string; name: string; revenueCents: number; expenseCents: number }[];
   funds: { id: string; name: string; programName: string | null; balanceCents: number; isNegative: boolean }[];
+  payables: PayablesSummary;
 }
 
 export type FinanceOverview = OrgOverview | ProgramOverview;
@@ -130,12 +137,13 @@ export async function getFinanceOverview(ctx: SessionContext): Promise<FinanceOv
         expenseCents: perProgram.get(p.id)?.exp ?? 0,
       })),
       funds: fundRows,
+      payables: await getPayablesSummary(ctx),
     };
   }
 
   // ---- org-wide
   const level = access.level as FinanceLevel;
-  const [allTotals, fyTotals, funds, feeds, [needsReview], [conn], openingRow, mappedFeeds] = await Promise.all([
+  const [allTotals, fyTotals, funds, feeds, [needsReview], [conn], openingRow, mappedFeeds, payables, receivables, gifts] = await Promise.all([
     sumLines(db),
     sumLines(db, { from: fy.start, to: fy.end }),
     listFunds(ctx),
@@ -158,6 +166,9 @@ export async function getFinanceOverview(ctx: SessionContext): Promise<FinanceOv
       .where(and(eq(finJournalEntries.source, "opening_balance"), isNull(finJournalEntries.voidedAt)))
       .limit(1),
     db.select({ id: finBankAccounts.id }).from(finBankAccounts).where(and(eq(finBankAccounts.isActive, true))).limit(1),
+    getPayablesSummary(ctx),
+    getInvoiceSummary(ctx),
+    getGiftReceiptSummary(ctx),
   ]);
 
   const bal = new Map<string, number>();
@@ -225,6 +236,13 @@ export async function getFinanceOverview(ctx: SessionContext): Promise<FinanceOv
       hint: "Registration payments on or after this date are recorded automatically.",
       href: "/finance/settings",
     },
+    {
+      key: "receipt_signer",
+      label: "Donation receipt signer set",
+      done: !!settings?.receiptSignerName?.trim(),
+      hint: "Donation receipts are signed by a named officer. Set the name and title in Finance settings.",
+      href: "/finance/settings",
+    },
   ];
 
   return {
@@ -249,5 +267,8 @@ export async function getFinanceOverview(ctx: SessionContext): Promise<FinanceOv
     needsReviewCount: needsReview.n,
     lockDate: settings?.lockDate ?? null,
     checklist,
+    payables,
+    receivables,
+    gifts,
   };
 }

@@ -34,6 +34,15 @@ async function sendEmail({ to, subject, html }: { to: string; subject: string; h
   await nuntly.emails.send({ from: fromAddress(), to, subject, html });
 }
 
+/**
+ * Generic HTML email for feature modules that build their own templates
+ * (finance invoices, donation receipts). Callers must escape every interpolated
+ * value with escapeHtml. Logs instead of sending when NUNTLY_API_KEY is missing.
+ */
+export async function sendHtmlEmail(args: { to: string; subject: string; html: string }): Promise<void> {
+  await sendEmail(args);
+}
+
 function layout(body: string) {
   return `<div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">${body}</div>`;
 }
