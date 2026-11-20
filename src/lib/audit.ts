@@ -170,7 +170,14 @@ export type AuditAction =
   | "finance.fund_released"
   | "finance.budget_created"
   | "finance.budget_updated"
-  | "finance.budget_adopted";
+  | "finance.budget_adopted"
+  | "program_site.updated"
+  | "program_site.published"
+  | "program_site.unpublished"
+  | "program_site.address_updated"
+  | "program_site.image_updated"
+  | "program_site.image_removed"
+  | "program.listing_updated";
 
 export type AuditTarget =
   | "athlete"
@@ -223,7 +230,8 @@ export type AuditTarget =
   | "fin_invoice"
   | "fin_gift"
   | "fin_receipt"
-  | "fin_budget";
+  | "fin_budget"
+  | "program_site";
 
 export async function writeAudit(
   e: {

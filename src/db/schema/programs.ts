@@ -52,6 +52,9 @@ export const programs = pgTable("programs", {
     .notNull()
     .default([]),
   isActive: boolean("is_active").notNull().default(true),
+  // false = seasons are hidden from the main GBYS landing page and dashboard suggestions;
+  // they are reachable only from the program's own home page (or a direct /register link).
+  listOnMainSite: boolean("list_on_main_site").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
 });
