@@ -93,6 +93,8 @@ export interface NavOptions {
   finance?: "admin" | "editor" | "viewer" | "program";
   /** FEATURE_VOLUNTEER_SHIFTS: shift scheduling entries show only when true (default off). */
   volunteerShifts?: boolean;
+  /** FEATURE_MEMBER_REIMBURSEMENTS: member "Reimbursements" entry (default off). */
+  memberReimbursements?: boolean;
 }
 
 /**
@@ -155,7 +157,9 @@ export function getNavGroups(orgRole: OrgRole, opts: NavOptions = {}): NavGroup[
         { label: "Credentials", href: "/volunteer/credentials", icon: "credentials" },
         { label: "Roles", href: "/volunteer/roles", icon: "roles" },
         { label: "Hours", href: "/volunteer/hours", icon: "hours" },
-        { label: "Reimbursements", href: "/reimbursements", icon: "reimbursements" },
+        ...(opts.memberReimbursements
+          ? [{ label: "Reimbursements", href: "/reimbursements", icon: "reimbursements" as const }]
+          : []),
         ...(shiftsOn ? [{ label: "Shifts", href: "/volunteer/shifts", icon: "shifts" as const }] : []),
       ],
     },

@@ -18,6 +18,7 @@ import {
 } from "@/db/schema";
 import { writeAudit } from "@/lib/audit";
 import { sendHtmlEmail } from "@/lib/email";
+import { isFeatureEnabled } from "@/lib/features";
 import { addDays, laToday, type IsoDate } from "@/lib/finance/dates";
 import {
   APPROVER_REFUSAL_TEXT,
@@ -1219,6 +1220,7 @@ export async function submitReimbursement(
   input: ReimbursementInput,
   receipts: File[]
 ): Promise<{ id: string }> {
+  if (!isFeatureEnabled("memberReimbursements")) throw new DalError("FORBIDDEN", "Reimbursement claims aren't available yet.");
   const data = reimbursementInputSchema.parse(input);
   if (receipts.length === 0) throw new DalError("INVALID", "Add at least one photo or PDF of your receipt.");
   if (receipts.length > 10) throw new DalError("INVALID", "You can attach up to 10 receipts.");

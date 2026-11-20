@@ -39,6 +39,7 @@ export async function AppShell({
     hasTeams: user.hasTeams,
     finance: user.finance,
     volunteerShifts: isFeatureEnabled("volunteerShifts"),
+    memberReimbursements: isFeatureEnabled("memberReimbursements"),
   });
   // Collapsed nav sections (read here so the first paint matches; no flash). The section holding
   // the current page is forced open on the client, which knows the pathname.
