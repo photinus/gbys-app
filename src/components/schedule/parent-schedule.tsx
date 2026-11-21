@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { Card, CardHeader, EmptyState } from "@/components/ui";
 import { cn } from "@/lib/utils";
 import { EventRow } from "./event-row";
+import { SCHEDULE_RANGES, type ScheduleRangeKey } from "./schedule-range";
 import { dayKey, formatDayLong, groupBy } from "./group";
 import { SubscribePanel } from "./subscribe-panel";
 import type { EventItem } from "./types";
@@ -19,11 +20,13 @@ export interface ScheduleTeam {
 }
 
 export function ParentSchedule({
+  rangeKey = "4w",
   events,
   teams,
   athletes,
   baseUrl,
 }: {
+  rangeKey?: ScheduleRangeKey;
   events: (EventItem & { athleteIds: string[] })[];
   teams: ScheduleTeam[];
   athletes: { id: string; name: string }[];
@@ -36,11 +39,32 @@ export function ParentSchedule({
   );
   const days = useMemo(() => groupBy(visible, (e) => dayKey(e.startsAt)), [visible]);
   const shownTeams = athleteId === "all" ? teams : teams.filter((t) => t.athletes.some((a) => a.id === athleteId));
+  const range = SCHEDULE_RANGES.find((r) => r.key === rangeKey) ?? SCHEDULE_RANGES[0];
+  const rangeIndex = SCHEDULE_RANGES.indexOf(range);
+  const longer = SCHEDULE_RANGES[rangeIndex + 1];
+  const hrefFor = (key: ScheduleRangeKey) => (key === "4w" ? "/schedule" : `/schedule?range=${key}`);
 
   return (
     <div className="space-y-6">
       <Card>
-        <CardHeader title="Next 4 weeks" description="Practices, games and events for your athletes' teams and the teams you coach." />
+        <CardHeader title={range.title} description="Practices, games and events for your athletes' teams and the teams you coach." />
+        <nav aria-label="How far ahead to show" className="mb-4 flex flex-wrap gap-2">
+          {SCHEDULE_RANGES.map((r) => (
+            <Link
+              key={r.key}
+              href={hrefFor(r.key)}
+              scroll={false}
+              aria-current={r.key === range.key ? "true" : undefined}
+              data-testid={`schedule-range-${r.key}`}
+              className={cn(
+                "rounded-full border px-3.5 py-1.5 text-xs font-semibold",
+                r.key === range.key ? "border-charcoal bg-charcoal text-white" : "border-line bg-white text-stone-600 hover:bg-alabaster"
+              )}
+            >
+              {r.label}
+            </Link>
+          ))}
+        </nav>
         {athletes.length > 1 ? (
           <div role="group" aria-label="Filter by athlete" className="mb-4 flex flex-wrap gap-2">
             {[{ id: "all", name: "Everyone" }, ...athletes].map((a) => (
@@ -60,7 +84,14 @@ export function ParentSchedule({
           </div>
         ) : null}
         {days.length === 0 ? (
-          <EmptyState title="Nothing scheduled" description="When a coach adds practices or games for your athlete's team, they show up here." />
+          <EmptyState
+            title="Nothing scheduled"
+            description={
+              longer
+                ? `Nothing in the ${range.title.toLowerCase()}. Try a longer range above. When a coach adds practices or games for your athlete's team, they show up here.`
+                : "When a coach adds practices or games for your athlete's team, they show up here."
+            }
+          />
         ) : (
           <div className="space-y-5">
             {days.map((d) => (
@@ -73,6 +104,13 @@ export function ParentSchedule({
                 </ul>
               </section>
             ))}
+            {longer ? (
+              <div className="pt-1">
+                <Link href={hrefFor(longer.key)} scroll={false} className="text-sm font-semibold text-indigo-700 hover:underline">
+                  Show {`the next ${longer.label}`}
+                </Link>
+              </div>
+            ) : null}
           </div>
         )}
       </Card>
